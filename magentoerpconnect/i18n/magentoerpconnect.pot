@@ -1132,3 +1132,7 @@ msgstr ""
 msgid "magentoerpconnect.installed"
 msgstr ""
 
+#. module: magentoerpconnect
+#: sql_constraint:magento.account.invoice:0
+msgid "A Magento binding for this invoice already exists."
+msgstr ""
