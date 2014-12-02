@@ -1030,10 +1030,12 @@ class SaleOrderLineImportMapper(ImportMapper):
 
     @mapping
     def discount_amount(self, record):
-        discount_value = float(record.get('discount_amount', 0))
-        if self.backend_record.catalog_price_tax_included:
+        if record.get('discount_amount'):
+            discount_value = float(record.get('discount_amount', 0))
+        if self.backend_record.catalog_price_tax_included and \
+           record.get('row_total_incl_tax'):
             row_total = float(record.get('row_total_incl_tax', 0))
-        else:
+        elif record.get('row_total'):
             row_total = float(record.get('row_total', 0))
         discount = 0
         if discount_value > 0 and row_total > 0:
