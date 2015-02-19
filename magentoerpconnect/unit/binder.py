@@ -67,11 +67,10 @@ class MagentoModelBinder(MagentoBinder):
                  or an empty recordset if no binding is found
         :rtype: recordset
         """
-        with self.session.change_context(active_test=False):
-            bindings = self.recordset().search(
-                [('magento_id', '=', str(external_id)),
-                 ('backend_id', '=', self.backend_record.id)]
-            )
+        bindings = self.recordset().with_context(active_test=False).search(
+            [('magento_id', '=', str(external_id)),
+             ('backend_id', '=', self.backend_record.id)]
+        )
         if not bindings:
             return self.recordset() if browse else None
         assert len(bindings) == 1, "Several records found: %s" % (bindings,)
@@ -97,8 +96,7 @@ class MagentoModelBinder(MagentoBinder):
             record_id = record_id.id
             record = record_id
         if wrap:
-            with self.session.change_context(active_test=False):
-                bindings = self.recordset().search(
+            bindings = self.recordset().with_context(active_test=False).search(
                     [('openerp_id', '=', record_id),
                      ('backend_id', '=', self.backend_record.id),
                      ]
@@ -127,12 +125,13 @@ class MagentoModelBinder(MagentoBinder):
             "got: %s, %s" % (external_id, binding_id)
         )
         # avoid to trigger the export when we modify the `magento_id`
-        with self.session.change_context(connector_no_export=True):
-            now_fmt = datetime.now().strftime(DEFAULT_SERVER_DATETIME_FORMAT)
-            if not isinstance(binding_id, openerp.models.BaseModel):
-                binding_id = self.recordset().browse(binding_id)
-            binding_id.write({'magento_id': str(external_id),
-                              'sync_date': now_fmt})
+        now_fmt = datetime.now().strftime(DEFAULT_SERVER_DATETIME_FORMAT)
+        if not isinstance(binding_id, openerp.models.BaseModel):
+            binding_id = self.recordset().browse(binding_id)
+        binding_id.with_context(connector_no_export=True).write(
+            {'magento_id': str(external_id),
+             'sync_date': now_fmt,
+             })
 
     def unwrap_binding(self, binding_id, browse=False):
         """ For a binding record, gives the normal record.
