@@ -63,7 +63,7 @@ class MagentoModelBinder(MagentoBinder):
         :param unwrap: if True, returns the normal record (the one
                        inherits'ed), else return the binding record
         :return: a recordset of one record, depending on the value of unwrap,
-                 or an empty recorset if no binding is found
+                 or an empty recordset if no binding is found
         :rtype: recordset
         """
         with self.session.change_context(active_test=False):
@@ -126,12 +126,12 @@ class MagentoModelBinder(MagentoBinder):
             "got: %s, %s" % (external_id, binding_id)
         )
         # avoid to trigger the export when we modify the `magento_id`
-        with self.env.change_context(connector_no_export=True):
+        with self.session.change_context(connector_no_export=True):
             now_fmt = datetime.now().strftime(DEFAULT_SERVER_DATETIME_FORMAT)
             if not isinstance(binding_id, openerp.models.BaseModel):
-                record_id = self.recordset().browse(binding_id)
-                record_id.write({'magento_id': str(external_id),
-                                 'sync_date': now_fmt})
+                binding_id = self.recordset().browse(binding_id)
+            binding_id.write({'magento_id': str(external_id),
+                              'sync_date': now_fmt})
 
     def unwrap_binding(self, binding_id, browse=False):
         """ For a binding record, gives the normal record.
@@ -149,22 +149,5 @@ class MagentoModelBinder(MagentoBinder):
 
         openerp_record = binding.openerp_id
         if browse:
-            return self.session.browse(self.unwrap_model(),
-                                       openerp_record.id)
+            return openerp_record
         return openerp_record.id
-
-    def unwrap_model(self):
-        """ For a binding model, gives the name of the normal model.
-
-        Example: when called on a binder for ``magento.product.product``,
-        it will return ``product.product``.
-
-        This binder assumes that the normal model lays in ``openerp_id`` since
-        this is the field we use in the ``_inherits`` bindings.
-        """
-        try:
-            column = self.model._fields['openerp_id']
-        except KeyError:
-            raise ValueError('Cannot unwrap model %s, because it has '
-                             'no openerp_id field' % self.model._name)
-        return column._obj
