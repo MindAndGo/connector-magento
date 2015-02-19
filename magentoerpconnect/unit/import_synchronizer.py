@@ -185,7 +185,7 @@ class MagentoImportSynchronizer(ImportSynchronizer):
         _logger.debug('%d updated from magento %s', binding, self.magento_id)
         return
 
-    def _after_import(self, binding_id):
+    def _after_import(self, binding):
         """ Hook called at the end of the import """
         return
 
