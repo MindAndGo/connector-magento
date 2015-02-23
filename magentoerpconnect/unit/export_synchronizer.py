@@ -258,7 +258,7 @@ class MagentoExporter(MagentoBaseExporter):
             return
         if exporter_class is None:
             exporter_class = MagentoExporter
-        rel_binder = self.get_binder_for_model(binding_model)
+        rel_binder = self.binder_for(binding_model)
         # wrap is typically True if the relation is for instance a
         # 'product.product' record but the binding model is
         # 'magento.product.product'
@@ -306,8 +306,7 @@ class MagentoExporter(MagentoBaseExporter):
             binding_id = relation.id
 
         if not rel_binder.to_backend(binding_id):
-            exporter = self.get_connector_unit_for_model(exporter_class,
-                                                         binding_model)
+            exporter = self.unit_for(exporter_class, model=binding_model)
             exporter.run(binding_id)
 
     def _export_dependencies(self):

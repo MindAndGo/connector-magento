@@ -371,7 +371,7 @@ class PartnerImport(MagentoImportSynchronizer):
 
     def _after_import(self, partner_binding):
         """ Import the addresses """
-        book = self.unit_for(PartnerAddressBook, 'magento.address')
+        book = self.unit_for(PartnerAddressBook, model='magento.address')
         book.import_addresses(self.magento_id, partner_binding.id)
 
 
@@ -438,7 +438,7 @@ class PartnerAddressBook(ConnectorUnit):
                     # Copy the billing address on the company
                     # and use the name of the company for the name
                     company_mapper = self.unit_for(CompanyImportMapper,
-                                                   'magento.res.partner')
+                                                   model='magento.res.partner')
                     map_record = company_mapper.map_record(magento_record)
                     partner_binding.write(map_record.values())
                 else:

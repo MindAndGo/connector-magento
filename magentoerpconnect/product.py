@@ -607,17 +607,17 @@ class ProductImport(MagentoImportSynchronizer):
 
     def _after_import(self, binding):
         """ Hook called at the end of the import """
-        translation_importer = self.unit_for(
-            TranslationImporter, self.model._name)
+        translation_importer = self.unit_for(TranslationImporter,
+                                             model=self.records())
         translation_importer.run(self.magento_id, binding.id,
                                  mapper_class=ProductImportMapper)
-        image_importer = self.unit_for(
-            CatalogImageImporter, self.model._name)
+        image_importer = self.unit_for(CatalogImageImporter,
+                                       model=self.records())
         image_importer.run(self.magento_id, binding.id)
 
         if self.magento_record['type_id'] == 'bundle':
-            bundle_importer = self.unit_for(
-                BundleImporter, self.model._name)
+            bundle_importer = self.unit_for(BundleImporter,
+                                            model=self.records())
             bundle_importer.run(binding.id, self.magento_record)
 
 
