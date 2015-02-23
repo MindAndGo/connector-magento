@@ -294,7 +294,7 @@ class PartnerImportMapper(ImportMapper):
     @mapping
     def customer_group_id(self, record):
         # import customer groups
-        binder = self.get_binder_for_model('magento.res.partner.category')
+        binder = self.binder_for(model='magento.res.partner.category')
         category_id = binder.to_openerp(record['group_id'], unwrap=True)
 
         if category_id is None:
@@ -308,14 +308,14 @@ class PartnerImportMapper(ImportMapper):
 
     @mapping
     def website_id(self, record):
-        binder = self.get_binder_for_model('magento.website')
+        binder = self.binder_for(model='magento.website')
         website_id = binder.to_openerp(record['website_id'])
         return {'website_id': website_id}
 
     @only_create
     @mapping
     def company_id(self, record):
-        binder = self.get_binder_for_model('magento.storeview')
+        binder = self.binder_for(model='magento.storeview')
         storeview = binder.to_openerp(record['store_id'], browse=True)
         if storeview:
             company = storeview.backend_id.company_id
@@ -325,7 +325,7 @@ class PartnerImportMapper(ImportMapper):
 
     @mapping
     def lang(self, record):
-        binder = self.get_binder_for_model('magento.storeview')
+        binder = self.binder_for(model='magento.storeview')
         storeview = binder.to_openerp(record['store_id'], browse=True)
         if storeview:
             if storeview.lang_id:
@@ -371,8 +371,7 @@ class PartnerImport(MagentoImportSynchronizer):
 
     def _after_import(self, partner_binding):
         """ Import the addresses """
-        get_unit = self.get_connector_unit_for_model
-        book = get_unit(PartnerAddressBook, 'magento.address')
+        book = self.unit_for(PartnerAddressBook, 'magento.address')
         book.import_addresses(self.magento_id, partner_binding.id)
 
 
@@ -412,16 +411,14 @@ class PartnerAddressBook(ConnectorUnit):
     _model_name = 'magento.address'
 
     def import_addresses(self, magento_partner_id, partner_binding_id):
-        get_unit = self.get_connector_unit_for_model
         addresses = self._get_address_infos(magento_partner_id,
                                             partner_binding_id)
         for address_id, infos in addresses:
-            importer = get_unit(MagentoImportSynchronizer)
+            importer = self.unit_for(MagentoImportSynchronizer)
             importer.run(address_id, infos)
 
     def _get_address_infos(self, magento_partner_id, partner_binding_id):
-        get_unit = self.get_connector_unit_for_model
-        adapter = get_unit(BackendAdapter)
+        adapter = self.unit_for(BackendAdapter)
         mag_address_ids = adapter.search({'customer_id':
                                           {'eq': magento_partner_id}})
         if not mag_address_ids:
@@ -440,8 +437,8 @@ class PartnerAddressBook(ConnectorUnit):
                     # with the partner.
                     # Copy the billing address on the company
                     # and use the name of the company for the name
-                    company_mapper = get_unit(CompanyImportMapper,
-                                              'magento.res.partner')
+                    company_mapper = self.unit_for(CompanyImportMapper,
+                                                   'magento.res.partner')
                     map_record = company_mapper.map_record(magento_record)
                     partner_binding.write(map_record.values())
                 else:
@@ -526,7 +523,7 @@ class BaseAddressImportMapper(ImportMapper):
     def company_id(self, record):
         parent_id = record.get('parent_id')
         if parent_id:
-            parent = self.records('res.partner').browse(parent_id)
+            parent = self.env['res.partner'].browse(parent_id)
             if parent.company_id:
                 return {'company_id': parent.company_id.id}
             else:
