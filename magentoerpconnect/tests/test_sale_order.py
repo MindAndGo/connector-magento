@@ -41,16 +41,13 @@ class TestSaleOrder(SetUpMagentoSynchronized):
                 import_record(self.session,
                               'magento.sale.order',
                               backend_id, 900000691)
-        MagentoOrder = self.registry('magento.sale.order')
-        SaleOrder = self.registry('sale.order')
-        mag_order_ids = MagentoOrder.search(self.cr,
-                                            self.uid,
-                                            [('backend_id', '=', backend_id),
-                                             ('magento_id', '=', '900000691')])
-        self.assertEqual(len(mag_order_ids), 1)
-        mag_order = MagentoOrder.browse(self.cr, self.uid, mag_order_ids[0])
+        MagentoOrder = self.env['magento.sale.order']
+        mag_orders = MagentoOrder.search([('backend_id', '=', backend_id),
+                                          ('magento_id', '=', '900000691')])
+        self.assertEqual(len(mag_orders), 1)
+        mag_order = mag_orders[0]
         order = mag_order.openerp_id
-        action = SaleOrder.copy_quotation(self.cr, self.uid, [order.id])
+        action = order.copy_quotation()
         new_id = action['res_id']
         order.refresh()
         self.assertFalse(order.magento_bind_ids)
