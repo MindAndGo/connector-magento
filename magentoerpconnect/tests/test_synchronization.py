@@ -19,8 +19,6 @@
 #
 ##############################################################################
 
-from functools import partial
-
 from openerp.addons.connector.exception import InvalidDataError
 from openerp.addons.magentoerpconnect.unit.import_synchronizer import (
     import_batch,
@@ -44,33 +42,26 @@ class SetUpMagentoBase(common.TransactionCase):
 
     def setUp(self):
         super(SetUpMagentoBase, self).setUp()
-        self.backend_model = self.registry('magento.backend')
-        self.session = ConnectorSession(self.cr, self.uid)
-        data_model = self.registry('ir.model.data')
-        self.get_ref = partial(data_model.get_object_reference,
-                               self.cr, self.uid)
-        __, warehouse_id = self.get_ref('stock', 'warehouse0')
+        self.backend_model = self.env['magento.backend']
+        self.session = ConnectorSession(self.env.cr, self.env.uid)
+        warehouse = self.env.ref('stock.warehouse0')
         self.backend_id = self.backend_model.create(
-            self.cr,
-            self.uid,
             {'name': 'Test Magento',
              'version': '1.7',
              'location': 'http://anyurl',
              'username': 'guewen',
-             'warehouse_id': warehouse_id,
-             'password': '42'})
+             'warehouse_id': warehouse.id,
+             'password': '42'}).id
         # payment method needed to import a sale order
-        __, workflow_id = self.get_ref('sale_automatic_workflow',
-                                       'manual_validation')
-        __, journal_id = self.get_ref('account',
-                                      'check_journal')
-        self.registry('payment.method').create(
-            self.cr, self.uid,
+        workflow = self.env.ref(
+            'sale_automatic_workflow.manual_validation')
+        journal = self.env.ref('account.check_journal')
+        self.env['payment.method'].create(
             {'name': 'checkmo',
-             'workflow_process_id': workflow_id,
+             'workflow_process_id': workflow.id,
              'import_rule': 'always',
              'days_before_cancel': 0,
-             'journal_id': journal_id})
+             'journal_id': journal.id})
 
 
 class TestBaseMagento(SetUpMagentoBase):
@@ -82,23 +73,18 @@ class TestBaseMagento(SetUpMagentoBase):
             import_batch(self.session, 'magento.store', self.backend_id)
             import_batch(self.session, 'magento.storeview', self.backend_id)
 
-        website_model = self.registry('magento.website')
-        website_ids = website_model.search(
-            self.cr, self.uid,
-            [('backend_id', '=', self.backend_id)])
-        self.assertEqual(len(website_ids), 2)
+        website_model = self.env['magento.website']
+        websites = website_model.search([('backend_id', '=', self.backend_id)])
+        self.assertEqual(len(websites), 2)
 
-        store_model = self.registry('magento.store')
-        store_ids = store_model.search(self.cr,
-                                       self.uid,
-                                       [('backend_id', '=', self.backend_id)])
-        self.assertEqual(len(store_ids), 2)
+        store_model = self.env['magento.store']
+        stores = store_model.search([('backend_id', '=', self.backend_id)])
+        self.assertEqual(len(stores), 2)
 
-        storeview_model = self.registry('magento.storeview')
-        storeview_ids = storeview_model.search(
-            self.cr, self.uid,
+        storeview_model = self.env['magento.storeview']
+        storeviews = storeview_model.search(
             [('backend_id', '=', self.backend_id)])
-        self.assertEqual(len(storeview_ids), 4)
+        self.assertEqual(len(storeviews), 4)
 
         # TODO; install & configure languages on storeviews
 
@@ -124,10 +110,9 @@ class TestImportMagento(SetUpMagentoSynchronized):
             import_record(self.session, 'magento.product.category',
                           backend_id, 1)
 
-        category_model = self.registry('magento.product.category')
-        category_ids = category_model.search(
-            self.cr, self.uid, [('backend_id', '=', backend_id)])
-        self.assertEqual(len(category_ids), 1)
+        category_model = self.env['magento.product.category']
+        categories = category_model.search([('backend_id', '=', backend_id)])
+        self.assertEqual(len(categories), 1)
 
     def test_11_import_product_category_with_gap(self):
         """ Import of a product category when parent categories are missing """
@@ -136,10 +121,9 @@ class TestImportMagento(SetUpMagentoSynchronized):
             import_record(self.session, 'magento.product.category',
                           backend_id, 8)
 
-        category_model = self.registry('magento.product.category')
-        category_ids = category_model.search(
-            self.cr, self.uid, [('backend_id', '=', backend_id)])
-        self.assertEqual(len(category_ids), 4)
+        category_model = self.env['magento.product.category']
+        categories = category_model.search([('backend_id', '=', backend_id)])
+        self.assertEqual(len(categories), 4)
 
     def test_12_import_product(self):
         """ Import of a simple product """
@@ -150,12 +134,10 @@ class TestImportMagento(SetUpMagentoSynchronized):
                               'magento.product.product',
                               backend_id, 16)
 
-        product_model = self.registry('magento.product.product')
-        product_ids = product_model.search(self.cr,
-                                           self.uid,
-                                           [('backend_id', '=', backend_id),
-                                            ('magento_id', '=', '16')])
-        self.assertEqual(len(product_ids), 1)
+        product_model = self.env['magento.product.product']
+        products = product_model.search([('backend_id', '=', backend_id),
+                                         ('magento_id', '=', '16')])
+        self.assertEqual(len(products), 1)
 
     def test_13_import_product_category_missing(self):
         """ Import of a simple product when the category is missing """
@@ -166,12 +148,10 @@ class TestImportMagento(SetUpMagentoSynchronized):
                               'magento.product.product',
                               backend_id, 25)
 
-        product_model = self.registry('magento.product.product')
-        product_ids = product_model.search(self.cr,
-                                           self.uid,
-                                           [('backend_id', '=', backend_id),
-                                            ('magento_id', '=', '25')])
-        self.assertEqual(len(product_ids), 1)
+        product_model = self.env['magento.product.product']
+        products = product_model.search([('backend_id', '=', backend_id),
+                                         ('magento_id', '=', '25')])
+        self.assertEqual(len(products), 1)
 
     def test_14_import_product_configurable(self):
         """ Import of a configurable product : no need to import it """
@@ -182,12 +162,10 @@ class TestImportMagento(SetUpMagentoSynchronized):
                               'magento.product.product',
                               backend_id, 126)
 
-        product_model = self.registry('magento.product.product')
-        product_ids = product_model.search(self.cr,
-                                           self.uid,
-                                           [('backend_id', '=', backend_id),
-                                            ('magento_id', '=', '126')])
-        self.assertEqual(len(product_ids), 0)
+        product_model = self.env['magento.product.product']
+        products = product_model.search([('backend_id', '=', backend_id),
+                                         ('magento_id', '=', '126')])
+        self.assertEqual(len(products), 0)
 
     def test_15_import_product_bundle(self):
         """ Bundle should fail: not yet supported """
@@ -224,12 +202,10 @@ class TestImportMagento(SetUpMagentoSynchronized):
                 import_record(self.session,
                               'magento.sale.order',
                               backend_id, 900000691)
-        order_model = self.registry('magento.sale.order')
-        order_ids = order_model.search(self.cr,
-                                       self.uid,
-                                       [('backend_id', '=', backend_id),
-                                        ('magento_id', '=', '900000691')])
-        self.assertEqual(len(order_ids), 1)
+        order_model = self.env['magento.sale.order']
+        orders = order_model.search([('backend_id', '=', backend_id),
+                                     ('magento_id', '=', '900000691')])
+        self.assertEqual(len(orders), 1)
 
     def test_31_import_sale_order_no_website_id(self):
         """ Import sale order: website_id is missing, happens with magento """
@@ -239,34 +215,26 @@ class TestImportMagento(SetUpMagentoSynchronized):
                 import_record(self.session,
                               'magento.sale.order',
                               backend_id, 900000692)
-        order_model = self.registry('magento.sale.order')
-        order_ids = order_model.search(self.cr,
-                                       self.uid,
-                                       [('backend_id', '=', backend_id),
-                                        ('magento_id', '=', '900000692')])
-        self.assertEqual(len(order_ids), 1)
+        order_model = self.env['magento.sale.order']
+        orders = order_model.search([('backend_id', '=', backend_id),
+                                     ('magento_id', '=', '900000692')])
+        self.assertEqual(len(orders), 1)
 
     def test_32_import_sale_order_with_prefix(self):
         """ Import sale order with prefix """
-        backend_id = self.backend_id
-        self.backend_model.write(self.cr, self.uid, self.backend_id,
-                                 {'sale_prefix': 'EC'})
+        backend = self.backend_model.browse(self.backend_id)
+        backend.write({'sale_prefix': 'EC'})
         with mock_api(magento_base_responses):
             with mock_urlopen_image():
                 import_record(self.session,
                               'magento.sale.order',
-                              backend_id, 900000693)
-        order_model = self.registry('magento.sale.order')
-        order_ids = order_model.search(self.cr,
-                                       self.uid,
-                                       [('backend_id', '=', backend_id),
-                                        ('magento_id', '=', '900000693')])
-        order = order_model.browse(self.cr,
-                                   self.uid,
-                                   order_ids[0])
+                              backend.id, 900000693)
+        order_model = self.env['magento.sale.order']
+        orders = order_model.search([('backend_id', '=', backend.id),
+                                     ('magento_id', '=', '900000693')])
+        order = orders[0]
         self.assertEqual(order.name, 'EC900000693')
-        self.backend_model.write(self.cr, self.uid, self.backend_id,
-                                 {'sale_prefix': False})
+        backend.write({'sale_prefix': False})
 
     def test_33_import_sale_order_with_configurable(self):
         """ Import sale order with configurable product """
@@ -276,94 +244,59 @@ class TestImportMagento(SetUpMagentoSynchronized):
                 import_record(self.session,
                               'magento.sale.order',
                               backend_id, 900000694)
-        mag_order_model = self.registry('magento.sale.order')
-        mag_order_ids = mag_order_model.search(
-            self.cr, self.uid,
+        mag_order_model = self.env['magento.sale.order']
+        mag_orders = mag_order_model.search([('backend_id', '=', backend_id),
+                                             ('magento_id', '=', '900000694')])
+        mag_order_line_model = self.env['magento.sale.order.line']
+        mag_order_lines = mag_order_line_model.search(
             [('backend_id', '=', backend_id),
-             ('magento_id', '=', '900000694')])
-        mag_order_line_model = self.registry('magento.sale.order.line')
-        mag_order_line_ids = mag_order_line_model.search(
-            self.cr, self.uid,
-            [('backend_id', '=', backend_id),
-             ('magento_order_id', '=', mag_order_ids[0])])
-        self.assertEqual(len(mag_order_ids), 1)
-        self.assertEqual(len(mag_order_line_ids), 1)
-        order_line_id = mag_order_line_model.read(self.cr,
-                                                  self.uid,
-                                                  mag_order_line_ids[0],
-                                                  ['openerp_id'])['openerp_id']
-        order_line_model = self.registry('sale.order.line')
-        price_unit = order_line_model.read(self.cr,
-                                           self.uid,
-                                           order_line_id[0],
-                                           ['price_unit'])['price_unit']
+             ('magento_order_id', '=', mag_orders[0].id)])
+        self.assertEqual(len(mag_orders), 1)
+        self.assertEqual(len(mag_order_lines), 1)
+        order_line = mag_order_lines[0].openerp_id
+        price_unit = order_line.price_unit
         self.assertEqual(price_unit, 41.0500)
 
     def test_34_import_sale_order_with_taxes_included(self):
         """ Import sale order with taxes included """
         backend_id = self.backend_id
-        storeview_model = self.registry('magento.storeview')
-        storeview_id = storeview_model.search(
-            self.cr, self.uid,
-            [('backend_id', '=', backend_id),
-             ('magento_id', '=', '1')])
-        storeview_model.write(self.cr, self.uid, storeview_id,
-                              {'catalog_price_tax_included': True})
+        storeview_model = self.env['magento.storeview']
+        storeviews = storeview_model.search([('backend_id', '=', backend_id),
+                                             ('magento_id', '=', '1')])
+        storeviews.write({'catalog_price_tax_included': True})
         with mock_api(magento_base_responses):
             with mock_urlopen_image():
                 import_record(self.session,
                               'magento.sale.order',
                               backend_id, 900000695)
-        mag_order_model = self.registry('magento.sale.order')
-        mag_order_ids = mag_order_model.search(
-            self.cr, self.uid,
-            [('backend_id', '=', backend_id),
-             ('magento_id', '=', '900000695')])
-        self.assertEqual(len(mag_order_ids), 1)
-        order_id = mag_order_model.read(self.cr,
-                                        self.uid,
-                                        mag_order_ids[0],
-                                        ['openerp_id'])['openerp_id']
-        order_model = self.registry('sale.order')
-        amount_total = order_model.read(self.cr,
-                                        self.uid,
-                                        order_id[0],
-                                        ['amount_total'])['amount_total']
+        mag_order_model = self.env['magento.sale.order']
+        mag_orders = mag_order_model.search([('backend_id', '=', backend_id),
+                                             ('magento_id', '=', '900000695')])
+        self.assertEqual(len(mag_orders), 1)
+        order = mag_orders[0].openerp_id
+        amount_total = order.amount_total
         # 97.5 is the amount_total if connector takes correctly included
         # tax prices.
         self.assertEqual(amount_total, 97.5000)
-        storeview_model.write(self.cr, self.uid, storeview_id,
-                              {'catalog_price_tax_included': False})
+        storeviews.write({'catalog_price_tax_included': False})
 
     def test_35_import_sale_order_with_discount(self):
         """ Import sale order with discounts"""
         backend_id = self.backend_id
-        storeview_model = self.registry('magento.storeview')
-        storeview_id = storeview_model.search(
-            self.cr, self.uid,
-            [('backend_id', '=', backend_id),
-             ('magento_id', '=', '2')])
-        storeview_model.write(self.cr, self.uid, storeview_id,
-                              {'catalog_price_tax_included': True})
+        storeview_model = self.env['magento.storeview']
+        storeviews = storeview_model.search([('backend_id', '=', backend_id),
+                                             ('magento_id', '=', '2')])
+        storeviews.write({'catalog_price_tax_included': True})
         with mock_api(magento_base_responses):
             with mock_urlopen_image():
                 import_record(self.session,
                               'magento.sale.order',
                               backend_id, 900000696)
-        mag_order_model = self.registry('magento.sale.order')
-        mag_order_ids = mag_order_model.search(
-            self.cr, self.uid,
-            [('backend_id', '=', backend_id),
-             ('magento_id', '=', '900000696')])
-        self.assertEqual(len(mag_order_ids), 1)
-        order_id = mag_order_model.read(self.cr,
-                                        self.uid,
-                                        mag_order_ids[0],
-                                        ['openerp_id'])['openerp_id']
-        order_model = self.registry('sale.order')
-        order = order_model.browse(self.cr,
-                                   self.uid,
-                                   order_id[0])
+        mag_order_model = self.env['magento.sale.order']
+        mag_orders = mag_order_model.search([('backend_id', '=', backend_id),
+                                             ('magento_id', '=', '900000696')])
+        self.assertEqual(len(mag_orders), 1)
+        order = mag_orders[0].openerp_id
         self.assertEqual(order.amount_total, 36.9500)
 
         for line in order.order_line:
@@ -375,5 +308,4 @@ class TestImportMagento(SetUpMagentoSynchronized):
                 self.fail('encountered unexpected sale '
                           'order line %s' % line.name)
 
-        storeview_model.write(self.cr, self.uid, storeview_id,
-                              {'catalog_price_tax_included': False})
+        storeviews.write({'catalog_price_tax_included': False})
