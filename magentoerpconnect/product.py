@@ -465,7 +465,7 @@ class ProductImportMapper(ImportMapper):
 
     @mapping
     def is_active(self, record):
-        mapper = self.get_connector_unit_for_model(IsActiveProductImportMapper)
+        mapper = self.unit_for(IsActiveProductImportMapper)
         return mapper.map_record(record).values()
 
     @mapping
@@ -531,8 +531,7 @@ class ProductImportMapper(ImportMapper):
     @mapping
     def bundle_mapping(self, record):
         if record['type_id'] == 'bundle':
-            bundle_mapper = self.get_connector_unit_for_model(
-                BundleProductImportMapper)
+            bundle_mapper = self.unit_for(BundleProductImportMapper)
             return bundle_mapper.map_record(record).values()
 
 
@@ -564,11 +563,9 @@ class ProductImport(MagentoImportSynchronizer):
         """ Check if the product type is in the selection (so we can
         prevent the `except_orm` and display a better error message).
         """
-        sess = self.session
         product_type = data['product_type']
-        cr, uid, context = sess.cr, sess.uid, sess.context
-        product_obj = sess.pool['magento.product.product']
-        types = product_obj.product_type_get(cr, uid, context=context)
+        product_obj = self.session.env['magento.product.product']
+        types = product_obj.product_type_get()
         available_types = [typ[0] for typ in types]
         if product_type not in available_types:
             raise InvalidDataError("The product type '%s' is not "
@@ -604,22 +601,22 @@ class ProductImport(MagentoImportSynchronizer):
 
     def _create(self, data):
         openerp_binding = super(ProductImport, self)._create(data)
-        checkpoint = self.get_connector_unit_for_model(AddCheckpoint)
+        checkpoint = self.unit_for(AddCheckpoint)
         checkpoint.run(openerp_binding.id)
         return openerp_binding
 
     def _after_import(self, binding):
         """ Hook called at the end of the import """
-        translation_importer = self.get_connector_unit_for_model(
+        translation_importer = self.unit_for(
             TranslationImporter, self.model._name)
         translation_importer.run(self.magento_id, binding.id,
                                  mapper_class=ProductImportMapper)
-        image_importer = self.get_connector_unit_for_model(
+        image_importer = self.unit_for(
             CatalogImageImporter, self.model._name)
         image_importer.run(self.magento_id, binding.id)
 
         if self.magento_record['type_id'] == 'bundle':
-            bundle_importer = self.get_connector_unit_for_model(
+            bundle_importer = self.unit_for(
                 BundleImporter, self.model._name)
             bundle_importer.run(binding.id, self.magento_record)
 
