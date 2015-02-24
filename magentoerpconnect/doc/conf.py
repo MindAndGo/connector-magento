@@ -14,6 +14,7 @@
 
 import sys
 import os
+import openerp
 import sphinx_bootstrap_theme
 
 # If extensions (or modules to document with autodoc) are in another
@@ -26,7 +27,6 @@ sys.path.append(os.path.abspath('../../../odoo'))
 
 # Load OpenERP with correct addons-path so the doc can be built even if
 # the addon import modules from other branches
-import openerp
 BASE_PATH = os.path.abspath(os.path.join(os.getcwd(), '../../..'))
 # You may need to change with your own paths
 ADDONS_PATHS = ('odoo/openerp/addons',
