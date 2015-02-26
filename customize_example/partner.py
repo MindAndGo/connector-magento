@@ -34,7 +34,7 @@ class magento_res_partner(models.Model):
 class res_partner(models.Model):
     _inherit = 'res.partner'
 
-    gender = fields.selection(selection=[('male', 'Male'),
+    gender = fields.Selection(selection=[('male', 'Male'),
                                          ('female', 'Female')],
                               string='Gender')
 
