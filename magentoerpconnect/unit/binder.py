@@ -97,10 +97,9 @@ class MagentoModelBinder(MagentoBinder):
             record = record_id
         if wrap:
             bindings = self.model.with_context(active_test=False).search(
-                    [('openerp_id', '=', record_id),
-                     ('backend_id', '=', self.backend_record.id),
-                     ]
-                )
+                [('openerp_id', '=', record_id),
+                 ('backend_id', '=', self.backend_record.id),
+                 ])
             if bindings:
                 return bindings
             else:
