@@ -63,7 +63,7 @@ class MagentoBinding(models.AbstractModel):
 
     _sql_constraints = [
         ('magento_uniq', 'unique(backend_id, magento_id)',
-         'A %s already exists with the same Magento ID.' % _name),
+         'A binding already exists with the same Magento ID.'),
     ]
 
 
