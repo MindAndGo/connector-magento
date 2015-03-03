@@ -42,10 +42,9 @@ class TestSaleOrder(SetUpMagentoSynchronized):
                               'magento.sale.order',
                               backend_id, 900000691)
         MagentoOrder = self.env['magento.sale.order']
-        mag_orders = MagentoOrder.search([('backend_id', '=', backend_id),
-                                          ('magento_id', '=', '900000691')])
-        self.assertEqual(len(mag_orders), 1)
-        mag_order = mag_orders[0]
+        mag_order = MagentoOrder.search([('backend_id', '=', backend_id),
+                                         ('magento_id', '=', '900000691')])
+        self.assertEqual(len(mag_order), 1)
         order = mag_order.openerp_id
         action = order.copy_quotation()
         new_id = action['res_id']
