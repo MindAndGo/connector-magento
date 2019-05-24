@@ -173,6 +173,11 @@ class MagentoBackend(models.Model):
         help='If a default category is selected, products imported '
              'without a category will be linked to it.',
     )
+    default_attribute_group_id = fields.Many2one(
+        comodel_name='magento.product.attributes.group',
+        string='Default Attribute Group'
+    )
+    auto_create_category = fields.Boolean('Auto Create Category', default=True)
 
     # TODO? add a field `auto_activate` -> activate a cron
     import_products_from_date = fields.Datetime(
@@ -197,6 +202,13 @@ class MagentoBackend(models.Model):
              "stock inventory updates.\nIf empty, Quantity Available "
              "is used.",
     )
+    no_stock_sync = fields.Boolean(
+        string='No Stock Synchronization',
+        required=False,
+        default=False,
+        help="Check this to default exclude new products "
+             "from stock synchronizations.",
+    )
     product_binding_ids = fields.One2many(
         comodel_name='magento.product.product',
         inverse_name='backend_id',
@@ -217,6 +229,10 @@ class MagentoBackend(models.Model):
         'field fiscal position on the sale order created by the connector.'
         'The value can also be specified on website or the store or the '
         'store view.'
+    )
+    rounding_diff_account_id = fields.Many2one(
+        comodel_name='account.account',
+        string='Rounding Diff Account'
     )
     is_multi_company = fields.Boolean(
         string='Is Backend Multi-Company',
@@ -297,6 +313,14 @@ class MagentoBackend(models.Model):
                 _(u"Check your configuration, we can't get the data. "
                   u"Here is the error:\n%s") %
                 str(e).decode('utf-8', 'ignore'))
+
+    @api.multi
+    def button_resync_products(self):
+        for backend in self:
+            for model_name in ('magento.product.template',
+                               'magento.product.bundle',
+                               'magento.product.product'):
+                self.env[model_name].search([('backend_id', '=', backend.id)]).with_delay().sync_from_magento()
 
     @api.multi
     def import_partners(self):
@@ -391,19 +415,14 @@ class MagentoBackend(models.Model):
         return True
 
     @api.multi
-    def _domain_for_update_product_stock_qty(self):
-        return [
+    def update_product_stock_qty(self):
+        magento_products = self.env['magento.product.product'].search([
             ('backend_id', 'in', self.ids),
             ('type', '!=', 'service'),
             ('no_stock_sync', '=', False),
-        ]
-
-    @api.multi
-    def update_product_stock_qty(self):
-        mag_product_obj = self.env['magento.product.product']
-        domain = self._domain_for_update_product_stock_qty()
-        magento_products = mag_product_obj.search(domain)
-        magento_products.recompute_magento_qty()
+        ])
+        for mproduct in magento_products:
+            mproduct.magento_stock_item_ids.sync_to_magento()
         return True
 
     @api.model
@@ -433,6 +452,8 @@ class MagentoBackend(models.Model):
     @api.model
     def _scheduler_import_product_product(self, domain=None):
         self._magento_backend('import_product_product', domain=domain)
+        self._magento_backend('import_product_template', domain=domain)
+        self._magento_backend('import_product_bundle', domain=domain)
 
     @api.model
     def _scheduler_update_product_stock_qty(self, domain=None):

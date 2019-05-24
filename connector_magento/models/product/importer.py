@@ -210,8 +210,9 @@ class ProductImportMapper(Component):
         if record['visibility'] == 1:
             # This is a product variant - so the price got set on the template !
             return {}
+        _logger.info("Do use price: %r", record.get('price', 0.0))
         return {
-            'list_price': record.get('price', 0.0),
+            'lst_price': record.get('price', 0.0),
         }
 
     @mapping
@@ -239,6 +240,8 @@ class ProductImportMapper(Component):
             return {}
         binder = self.binder_for('magento.account.tax')
         tax = binder.to_internal(tax_attribute[0]['value'], unwrap=True)
+        if int(tax_attribute[0]['value']) == 0:
+            return {}
         if not tax:
             raise MappingError("The tax class with the id %s "
                                "is not imported." %
@@ -258,6 +261,9 @@ class ProductImportMapper(Component):
             if not mattribute:
                 raise MappingError("The product attribute %s is not imported." %
                                    mattribute.name)
+            if str(attribute['value'])=='0' and mattribute.frontend_input == 'select':
+                # We do ignore attributes with value 0 on select attribute types - magento seems to be buggy here
+                continue
             mvalue = value_binder.to_internal("%s_%s" % (mattribute.attribute_id, str(attribute['value'])), unwrap=False)
             if not mvalue:
                 raise MappingError("The product attribute value %s in attribute %s is not imported." %
@@ -267,36 +273,6 @@ class ProductImportMapper(Component):
             'attribute_value_ids': attribute_value_ids,
         }
         
-    @mapping
-    def custom_attributes(self, record):
-        """
-        Usefull with catalog exporter module 
-        has to be migrated
-        """
-        attribute_binder = self.binder_for('magento.product.attribute')
-        value_binder = self.binder_for('magento.product.attribute.value')
-        magento_attribute_line_ids = []
-        for attribute in record['custom_attributes']:
-            mattribute = attribute_binder.to_internal(attribute['attribute_code'], unwrap=False, external_field='attribute_code')
-            if mattribute.create_variant :
-                # We do ignore attributes which do not create a variant
-                continue
-            if not mattribute:
-                raise MappingError("The product attribute %s is not imported." %
-                                   mattribute.name)
-        
-            vals = {
-                #                 'backend_id': self.backend_id.id,
-#                 'magento_product_id': mg_prod_id.id,
-                'attribute_id': mattribute.id,
-                'store_view_id': False,
-                'attribute_text': attribute['value']
-            }
-            magento_attribute_line_ids.append((0, False, vals))
-        return {
-            'magento_attribute_line_ids': magento_attribute_line_ids
-        }
-
     @mapping
     def type(self, record):
         if record['type_id'] == 'simple':
@@ -374,6 +350,10 @@ class ProductImportMapper(Component):
     def backend_id(self, record):
         return {'backend_id': self.backend_record.id}
 
+    @mapping
+    def no_stock_sync(self, record):
+        return {'no_stock_sync': self.backend_record.no_stock_sync}
+
     @only_create
     @mapping
     def odoo_id(self, record):
@@ -388,6 +368,7 @@ class ProductImporter(Component):
     _name = 'magento.product.product.importer'
     _inherit = 'magento.importer'
     _apply_on = ['magento.product.product']
+    _magento_id_field = 'sku'
 
     def _is_uptodate(self, binding):
         # TODO: Remove for production - only to test the update
@@ -473,9 +454,25 @@ class ProductImporter(Component):
         """
         self._validate_product_type(data)
 
-    def run(self, external_id, force=False, binding_template_id=None):
+    def _get_binding(self):
+        binding = super(ProductImporter, self)._get_binding()
+        if not binding:
+            # Do search using the magento_id - maybe the sku did changed !
+            binding = self.env['magento.product.product'].search([
+                ('backend_id', '=', self.backend_record.id),
+                ('magento_id', '=', self.magento_record['id']),
+            ])
+            # if we found binding here - then the update will also update the external_id on the binding record
+        return binding
+
+    def _preprocess_magento_record(self):
+        for attr in self.magento_record.get('custom_attributes', []):
+            self.magento_record[attr['attribute_code']] = attr['value']
+        return
+
+    def run(self, external_id, force=False, binding_template_id=None, binding=None):
         self._binding_template_id = binding_template_id
-        return super(ProductImporter, self).run(external_id, force)
+        return super(ProductImporter, self).run(external_id, force, binding=binding)
 
     def _update(self, binding, data):
         if self._binding_template_id:
@@ -499,6 +496,9 @@ class ProductImporter(Component):
         return binding
 
     def _after_import(self, binding):
+        def sort_by_position(elem):
+            return elem.position
+
         """ Hook called at the end of the import """
         translation_importer = self.component(
             usage='translation.importer',
@@ -508,10 +508,20 @@ class ProductImporter(Component):
             binding,
             mapper='magento.product.product.import.mapper'
         )
+
+        media_importer = self.component(usage='product.media.importer', model_name='magento.product.media')
+        for media in self.magento_record['media_gallery_entries']:
+            media_importer.run(media, binding)
+        # Here do choose the image at the smallest position as the main image
+        for media_binding in sorted(binding.magento_image_bind_ids.filtered(lambda m: m.media_type == 'image'), key=sort_by_position):
+            binding.with_context(connector_no_export=True).image = media_binding.image
+            break
+        '''
         image_importer = self.component(usage='product.image.importer')
         image_importer.run(self.external_id, binding,
                            data=self.magento_record)
 
+        '''
         if self.magento_record['type_id'] == 'bundle':
             bundle_importer = self.component(usage='product.bundle.importer')
             bundle_importer.run(binding, self.magento_record)

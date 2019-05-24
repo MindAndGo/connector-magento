@@ -138,7 +138,7 @@ class MagentoCRUDAdapter(AbstractComponent):
         and returns a list of ids """
         raise NotImplementedError
 
-    def read(self, id, attributes=None):
+    def read(self, id, attributes=None, binding=None):
         """ Returns the information of a record """
         raise NotImplementedError
 
@@ -254,25 +254,28 @@ class GenericAdapter(AbstractComponent):
         return self._call('%s.search' % self._magento_model,
                           [filters] if filters else [{}])
 
-    def read(self, id, attributes=None, storeview_code=None):
+    def _read_url(self, id, binding=None):
+        def escape(term):
+            if isinstance(term, basestring):
+                return urllib.quote(term.encode('utf-8'), safe='')
+            return term
+
+        if self._magento2_key:
+            return '%s/%s' % (self._magento2_model, escape(id))
+        else:
+            return '%s' % (self._magento2_model)
+
+    def read(self, id, attributes=None, storeview_code=None, binding=None):
         """ Returns the information of a record
 
         :rtype: dict
         """
         if self.work.magento_api._location.version == '2.0':
 
-            def escape(term):
-                if isinstance(term, basestring):
-                    return urllib.quote(term.encode('utf-8'), safe='')
-                return term
-
-#             if attributes:
-#                 raise NotImplementedError
+            res = self._call(self._read_url(id, binding), None, storeview=storeview_code)
             if self._magento2_key:
-                res = self._call('%s/%s' % (self._magento2_model, escape(id)), None, storeview=storeview_code)
                 return res
             else:
-                res = self._call('%s' % (self._magento2_model), None, storeview=storeview_code)
                 return next((
                     record for record in res 
                     if tools.ustr(record['id']) == id), 
@@ -323,7 +326,8 @@ class GenericAdapter(AbstractComponent):
                     self._create_url(binding),
                     {self._magento2_name: data,
                      'saveOptions': True}, http_method='post')
-                data.update(new_object)
+                if isinstance(new_object, dict):
+                    data.update(new_object)
             else:
                 new_object = self._call(
                     self._create_url(binding),
@@ -340,11 +344,11 @@ class GenericAdapter(AbstractComponent):
             if self._magento2_name:
                 return self._call(
                     self._write_url(id, binding),
-                    {self._magento2_name: data}, http_method='put', storeview_code=storeview_code)
+                    {self._magento2_name: data}, http_method='put', storeview=storeview_code or 'all')
             else:
                 return self._call(
                     '%s/%s' % (self._magento2_model, id),
-                    data, http_method='put', storeview_code=storeview_code)
+                    data, http_method='put', storeview=storeview_code or 'all')
         return self._call('%s.update' % self._magento_model,
                           [int(id), data])
 
@@ -359,7 +363,7 @@ class GenericAdapter(AbstractComponent):
     def delete(self, id):
         """ Delete a record on the external system """
         if self.work.magento_api._location.version == '2.0':
-            res = self._call(self._delete_url(id), http_method="delete")
+            res = self._call(self._delete_url(id), None, http_method="delete")
             return res
         return self._call('%s.delete' % self._magento_model, [int(id)])
 

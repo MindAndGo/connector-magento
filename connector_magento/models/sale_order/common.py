@@ -23,6 +23,7 @@ class MagentoSaleOrder(models.Model):
     _inherit = 'magento.binding'
     _description = 'Magento Sale Order'
     _inherits = {'sale.order': 'odoo_id'}
+    _magento_backend_path = 'sales/order/view/order_id'
 
     magento_order_history_ids = fields.One2many(
         comodel_name='magento.sale.order.historie',
@@ -37,6 +38,11 @@ class MagentoSaleOrder(models.Model):
         comodel_name='magento.sale.order.line',
         inverse_name='magento_order_id',
         string='Magento Order Lines'
+    )
+    magento_picking_ids = fields.One2many(
+        comodel_name='magento.stock.picking',
+        inverse_name='magento_order_id',
+        string='Magento Pickings'
     )
     total_amount = fields.Float(
         string='Total amount',
@@ -213,6 +219,7 @@ class MagentoSaleOrderLine(models.Model):
         # override 'magento.binding', can't be INSERTed if True:
         required=False,
     )
+    shipping_item_id = fields.Integer('Shipping Item ID')
     tax_rate = fields.Float(string='Tax Rate',
                             digits=dp.get_precision('Account'))
     notes = fields.Char()
@@ -223,14 +230,6 @@ class MagentoSaleOrderLine(models.Model):
         binding = self.env['magento.sale.order'].browse(magento_order_id)
         vals['order_id'] = binding.odoo_id.id
         binding = super(MagentoSaleOrderLine, self).create(vals)
-        # FIXME triggers function field
-        # The amounts (amount_total, ...) computed fields on 'sale.order' are
-        # not triggered when magento.sale.order.line are created.
-        # It might be a v8 regression, because they were triggered in
-        # v7. Before getting a better correction, force the computation
-        # by writing again on the line.
-        # line = binding.odoo_id
-        # line.write({'price_unit': line.price_unit})
         return binding
 
 
@@ -337,7 +336,7 @@ class SaleOrderAdapter(Component):
         arguments = self.get_search_arguments(filters)
         return super(SaleOrderAdapter, self).search(arguments)
 
-    def read(self, id, attributes=None):
+    def read(self, id, attributes=None, binding=None):
         """ Returns the information of a record
 
         :rtype: dict

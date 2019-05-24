@@ -24,13 +24,23 @@ class MagentoStockItemImportMapper(Component):
     
     @mapping
     @only_create
-    def odoo_id(self, record):
+    def magento_product_binding_id(self, record):
         binder = self.binder_for('magento.product.product')
         mproduct = binder.to_internal(record['product_id'], external_field='magento_id', unwrap=False)
-        return {
-            'odoo_id': mproduct.odoo_id.id,
-            'magento_product_binding_id': mproduct.id
-        }
+        if mproduct:
+            return {
+                'magento_product_binding_id': mproduct.id,
+                'magento_product_template_binding_id': None,
+                'product_type': 'product',
+            }
+        binder = self.binder_for('magento.product.template')
+        mproduct = binder.to_internal(record['product_id'], external_field='magento_id', unwrap=False)
+        if mproduct:
+            return {
+                'magento_product_template_binding_id': mproduct.id,
+                'magento_product_binding_id': None,
+                'product_type': 'configurable',
+            }
 
     @mapping
     @only_create
@@ -43,8 +53,12 @@ class MagentoStockItemImportMapper(Component):
 
     @mapping
     def backorders(self, record):
-        # TODO: Find out how to control this
-        return {'backorders': 'use_default'}
+        map = {
+            0: 'no',
+            1: 'yes',
+            2: 'yes-and-notification'
+        }
+        return {'backorders': map[record['backorders']]}
 
     @mapping
     def backend_id(self, record):

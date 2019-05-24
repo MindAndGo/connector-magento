@@ -10,57 +10,63 @@ from odoo.addons.component.core import Component
 
 _logger = logging.getLogger(__name__)
 
-'''
-            "item_id": 1237,
-            "product_id": 1198,
-            "stock_id": 1,
-            "qty": 0,
-            "is_in_stock": true,
-            "is_qty_decimal": false,
-            "show_default_notification_message": false,
-            "use_config_min_qty": true,
-            "min_qty": 0,
-            "use_config_min_sale_qty": 1,
-            "min_sale_qty": 1,
-            "use_config_max_sale_qty": true,
-            "max_sale_qty": 10000,
-            "use_config_backorders": true,
-            "backorders": 0,
-            "use_config_notify_stock_qty": true,
-            "notify_stock_qty": 1,
-            "use_config_qty_increments": true,
-            "qty_increments": 0,
-            "use_config_enable_qty_inc": true,
-            "enable_qty_increments": false,
-            "use_config_manage_stock": true,
-            "manage_stock": true,
-            "low_stock_date": null,
-            "is_decimal_divided": false,
-            "stock_status_changed_auto": 0
-'''
 
 class MagentoStockItem(models.Model):
     _name = 'magento.stock.item'
     _inherit = 'magento.binding'
     _description = 'Magento Stock Item'
-    _inherits = {'product.product': 'odoo_id'}
 
-    odoo_id = fields.Many2one(comodel_name='product.product',
-                              string='Product',
-                              required=True,
-                              ondelete='cascade')
+    @api.depends('magento_warehouse_id', 'qty', 'magento_product_binding_id', 'magento_product_binding_id.no_stock_sync')
+    def _compute_qty(self):
+        for stockitem in self:
+            stock_field = stockitem.magento_warehouse_id.quantity_field or 'virtual_available'
+            if stockitem.magento_warehouse_id.calculation_method == 'real':
+                location = stockitem.magento_warehouse_id.lot_stock_id
+                product_fields = [stock_field]
+                if stockitem.product_type=='product':
+                    record_with_location = stockitem.magento_product_binding_id.odoo_id.with_context(
+                        location=location.id)
+                else:
+                    record_with_location = stockitem.magento_product_template_binding_id.odoo_id.with_context(
+                        location=location.id)
+                result = record_with_location.read(product_fields)[0]
+                stockitem.calculated_qty = result[stock_field]
+            elif stockitem.magento_warehouse_id.calculation_method == 'fix':
+                stockitem.calculated_qty = stockitem.magento_warehouse_id.fixed_quantity
+
+            if stockitem.magento_product_binding_id.no_stock_sync:
+                # Never export if no stock sync is enabled
+                stockitem.should_export = False
+                continue
+            if stockitem.calculated_qty == stockitem.qty:
+                # Do not export when last exported qty is the same as the current
+                stockitem.should_export = False
+                continue
+            stockitem.should_export = True
+
+
     magento_product_binding_id = fields.Many2one(comodel_name='magento.product.product',
                                                  string='Product',
-                                                 required=True,
+                                                 required=False,
                                                  ondelete='cascade')
+    magento_product_template_binding_id = fields.Many2one(comodel_name='magento.product.template',
+                                                          string='Product Template',
+                                                          required=False,
+                                                          ondelete='cascade')
+    product_type = fields.Selection([
+        ('product', 'Product'),
+        ('configurable', 'Configurable'),
+    ], default='product', string="Product Type")
     magento_warehouse_id = fields.Many2one(comodel_name='magento.stock.warehouse',
                                            string='Warehouse',
                                            required=True,
                                            ondelete='cascade')
     qty = fields.Float(string='Quantity', default=0.0)
+    calculated_qty = fields.Float(string='Calculated Qty.', compute='_compute_qty')
+    should_export = fields.Boolean(string='Should Export', compute='_compute_qty')
     min_sale_qty = fields.Float(string='Min Sale Qty', default=1.0)
     is_qty_decimal = fields.Boolean(string='Decimal Qty.', default=False)
-    is_in_stock = fields.Boolean(string='In Stock')
+    is_in_stock = fields.Boolean(string='In Stock From Magento')
     min_qty = fields.Float('Min. Qty.', default=0.0)
     backorders = fields.Selection(
         selection=[('use_default', 'Use Default Config'),
@@ -73,15 +79,34 @@ class MagentoStockItem(models.Model):
         required=True,
     )
 
+    @api.multi
+    @job(default_channel='root.magento')
+    def sync_from_magento(self):
+        for binding in self:
+            binding.with_delay().run_sync_from_magento()
 
-class ProductProduct(models.Model):
-    _inherit = 'product.product'
+    @api.multi
+    @job(default_channel='root.magento')
+    def run_sync_from_magento(self):
+        self.ensure_one()
+        with self.backend_id.work_on(self._name) as work:
+            importer = work.component(usage='record.importer')
+            return importer.run(self.external_id, force=True, binding=self)
 
-    magento_stock_item_ids = fields.One2many(
-        comodel_name='magento.stock.item',
-        inverse_name='odoo_id',
-        string="Magento Stock Items",
-    )
+    @api.multi
+    @job(default_channel='root.magento')
+    def sync_to_magento(self):
+        for binding in self:
+            if binding.should_export:
+                binding.with_delay().run_sync_to_magento()
+
+    @api.multi
+    @job(default_channel='root.magento')
+    def run_sync_to_magento(self):
+        self.ensure_one()
+        with self.backend_id.work_on(self._name) as work:
+            exporter = work.component(usage='record.exporter')
+            return exporter.run(self)
 
 
 class MagentoStockItemAdapter(Component):
@@ -90,14 +115,30 @@ class MagentoStockItemAdapter(Component):
     _apply_on = 'magento.stock.item'
 
     _magento_model = 'stockItems'
-    _magento2_model = 'products/%(sku)s/stockItems/%(id)s'
+    _magento2_model = 'stockItems/%(sku)s'
     _magento2_name = 'stockItem'
     _magento2_search = 'stock/search'
     _magento2_key = 'id'
     _admin_path = '/{model}/edit/id/{id}'
 
     def _write_url(self, id, binding):
-        return self._magento2_model % {
-            'sku': binding.magento_product_binding_id.external_id,
-            'id': binding.external_id
-        }
+        if binding.product_type=='product':
+            return "products/%(sku)s/stockItems/%(id)s" % {
+                'sku': binding.magento_product_binding_id.external_id,
+                'id': binding.external_id
+            }
+        else:
+            return "products/%(sku)s/stockItems/%(id)s" % {
+                'sku': binding.magento_product_template_binding_id.external_id,
+                'id': binding.external_id
+            }
+
+    def _read_url(self, id, binding):
+        if binding.product_type=='product':
+            return 'stockItems/%(sku)s' % {
+                'sku': binding.magento_product_binding_id.external_id,
+            }
+        else:
+            return 'stockItems/%(sku)s' % {
+                'sku': binding.magento_product_template_binding_id.external_id,
+            }

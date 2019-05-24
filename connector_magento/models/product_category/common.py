@@ -1,11 +1,12 @@
 # -*- coding: utf-8 -*-
 # Copyright 2013-2017 Camptocamp SA
 # © 2016 Sodexis
+# © 2019 Callino
 # License AGPL-3.0 or later (http://www.gnu.org/licenses/agpl).
 
 import logging
 import xmlrpclib
-from odoo import models, fields
+from odoo import models, fields, api
 from odoo.addons.connector.exception import IDMissingInBackend
 from odoo.addons.component.core import Component
 from ...components.backend_adapter import MAGENTO_DATETIME_FORMAT
@@ -16,13 +17,15 @@ _logger = logging.getLogger(__name__)
 class MagentoProductCategory(models.Model):
     _name = 'magento.product.category'
     _inherit = 'magento.binding'
-    _inherits = {'product.category': 'odoo_id'}
     _description = 'Magento Product Category'
+    _magento_backend_path = 'catalog/category/edit/id'
+    _magento_frontend_path = 'catalog/category/view/id'
 
     odoo_id = fields.Many2one(comodel_name='product.category',
                               string='Product Category',
-                              required=True,
+                              required=False,
                               ondelete='cascade')
+    magento_name = fields.Char(string='Name')
     description = fields.Text(translate=True)
     magento_parent_id = fields.Many2one(
         comodel_name='magento.product.category',
@@ -34,6 +37,13 @@ class MagentoProductCategory(models.Model):
         inverse_name='magento_parent_id',
         string='Magento Child Categories',
     )
+
+    @api.multi
+    def sync_from_magento(self):
+        self.ensure_one()
+        with self.backend_id.work_on(self._name) as work:
+            importer = work.component(usage='record.importer')
+            return importer.run(self.external_id, force=True)
 
 
 class ProductCategory(models.Model):
@@ -56,9 +66,9 @@ class ProductCategoryAdapter(Component):
     _magento2_key = 'id'
     _admin_path = '/{model}/index/'
 
-    def _call(self, method, arguments, storeview=None):
+    def _call(self, method, arguments, http_method=None, storeview=None):
         try:
-            return super(ProductCategoryAdapter, self)._call(method, arguments, storeview=storeview)
+            return super(ProductCategoryAdapter, self)._call(method, arguments, http_method=http_method, storeview=storeview)
         except xmlrpclib.Fault as err:
             # 101 is the error in the Magento API
             # when the category does not exist
@@ -91,7 +101,7 @@ class ProductCategoryAdapter(Component):
         return self._call('oerp_catalog_category.search',
                           [filters] if filters else [{}])
 
-    def read(self, id, storeview_code=None, attributes=None):
+    def read(self, id, storeview_code=None, attributes=None, binding=None):
         """ Returns the information of a record
 
         :rtype: dict

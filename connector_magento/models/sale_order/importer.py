@@ -313,7 +313,6 @@ class SaleOrderImporter(Component):
         if self.binder.to_internal(self.external_id):
             return _('Already imported')
 
-    '''
     def _clean_magento_items(self, resource):
         """
         Method that clean the sale order line given by magento before
@@ -323,65 +322,44 @@ class SaleOrderImporter(Component):
         behavior of the sale order.
 
         """
-        child_items = {}  # key is the parent item id
         top_items = []
 
-        # Group the childs with their parent
+        # Remove top level configurable items
         for item in resource['items']:
-            if item.get('parent_item_id'):
-                child_items.setdefault(item['parent_item_id'], []).append(item)
-            elif item.get('parent_item'):  # 2.0
-                child_items.setdefault(
-                    item['parent_item']['item_id'], []).append(item)
-            else:
-                top_items.append(item)
-
-        all_items = []
-        for top_item in top_items:
-            if top_item['item_id'] in child_items:
-                item_modified = self._merge_sub_items(
-                    top_item['product_type'], top_item,
-                    child_items[top_item['item_id']])
-                if not isinstance(item_modified, list):
-                    item_modified = [item_modified]
-                all_items.extend(item_modified)
-            else:
-                all_items.append(top_item)
-        resource['items'] = all_items
+            if item.get('product_type') and item.get('product_type') == 'configurable':
+                continue
+            if item.get('product_type') and item.get('product_type') == 'bundle':
+                item['bundle_items'] = [];
+                # We do append the child items to the bundle item - so the mapper does have them available in the record
+                for subitem in resource['items']:
+                    if subitem.get('parent_item', False) and subitem['parent_item']['item_id'] == item['item_id']:
+                        item['bundle_items'].append(subitem)
+            top_items.append(item)
+        resource['items'] = top_items
         return resource
 
-    def _merge_sub_items(self, product_type, top_item, child_items):
+    def _create_discount_item(self, resource):
         """
-        Manage the sub items of the magento sale order lines. A top item
-        contains one or many child_items. For some product types, we
-        want to merge them in the main item, or keep them as order line.
+        Method that does create an extra discount item(s) if discount is given
 
-        This method has to stay because it allow to customize the
-        behavior of the sale order according to the product type.
-
-        A list may be returned to add many items (ie to keep all
-        child_items as items.
-
-        :param top_item: main item (bundle, configurable)
-        :param child_items: list of childs of the top item
-        :return: item or list of items
         """
-        if product_type == 'configurable':
-            item = top_item.copy()
-            # For configurable product all information regarding the
-            # price is in the configurable item. In the child a lot of
-            # information is empty, but contains the right sku and
-            # product_id. So the real product_id and the sku and the name
-            # have to be extracted from the child
-            for field in ['sku', 'product_id', 'name']:
-                item[field] = child_items[0][field]
-            # Experimental support for configurable products with multiple
-            # subitems
-            return [item] + child_items[1:]
-        elif product_type == 'bundle':
-            return child_items
-        return top_item
-    '''
+        items = []
+
+        discount = {}
+        for item in resource['items']:
+            if 'discount_percent' in item and 'tax_percent' in item:
+                key = "%s_%s" % (item['discount_percent'], item['tax_percent'])
+            elif 'discount_percent' in item:
+                key = item['discount_percent']
+            if key not in discount:
+                discount[key] = {
+                    'tax_percent'
+                }
+
+            items.append(item)
+
+        resource['items'] = items
+        return resource
 
     def _import_customer_group(self, group_id):
         self._import_dependency(group_id, 'magento.res.partner.category')
@@ -448,6 +426,7 @@ class SaleOrderImporter(Component):
             importer.run_with_data(payment, order_binding=binding)
 
     def _after_import(self, binding):
+        #self._create_discount_item(binding)
         self._link_parent_orders(binding)
         self._link_messages(binding)
         self._import_payment(binding)
@@ -459,9 +438,9 @@ class SaleOrderImporter(Component):
         # (http://www.magentocommerce.com/bug-tracking/issue?issue=15886)
         return storeview_binder.to_internal(record['store_id'])
 
-    def _get_magento_data(self):
+    def _get_magento_data(self, binding=None):
         """ Return the raw Magento data for ``self.external_id`` """
-        record = super(SaleOrderImporter, self)._get_magento_data()
+        record = super(SaleOrderImporter, self)._get_magento_data(binding)
         # sometimes we don't have website_id...
         # we fix the record!
         if not record.get('website_id'):
@@ -471,7 +450,7 @@ class SaleOrderImporter(Component):
         # sometimes we need to clean magento items (ex : configurable
         # product in a sale)
         # Not needed anymore - product bundle support is here
-        # record = self._clean_magento_items(record)
+        record = self._clean_magento_items(record)
         return record
     
     def _get_shipping_address(self):
@@ -524,8 +503,6 @@ class SaleOrderImporter(Component):
 
         partner_binder = self.binder_for('magento.res.partner')
         if is_guest_order:
-            # TODO: Use billing address data for the main contact
-
             # ensure that the flag is correct in the record
             record['customer_is_guest'] = True
             guest_customer_id = 'guestorder:%s' % record['increment_id']
@@ -591,26 +568,29 @@ class SaleOrderImporter(Component):
         addresses_defaults = {'parent_id': partner.id,
                               'magento_partner_id': partner_binding.id,
                               'email': record.get('customer_email', False),
-                              'active': False,
+                              'active': True,
                               'is_magento_order_address': True}
 
         addr_mapper = self.component(usage='import.mapper',
                                      model_name='magento.address')
 
-        def create_address(address_record):
+        def create_address(address_record, type):
             map_record = addr_mapper.map_record(address_record)
             map_record.update(addresses_defaults)
+            map_record.update({
+                'type': type
+            })
             address_bind = self.env['magento.address'].with_context(connector_no_export=True).create(
                 map_record.values(for_create=True,
                                   parent_partner=partner))
             return address_bind.odoo_id.id
 
-        billing_id = create_address(record['billing_address'])
+        billing_id = create_address(record['billing_address'], 'invoice')
 
         shipping_id = None
         shipping_address = self._get_shipping_address()
         if shipping_address:
-            shipping_id = create_address(shipping_address)
+            shipping_id = create_address(shipping_address, 'delivery')
 
         self.partner_id = partner.id
         self.partner_invoice_id = billing_id
@@ -679,7 +659,19 @@ class SaleOrderLineImportMapper(Component):
               ]
 
     @mapping
+    def name(self, record):
+        name = record['name']
+        if record['product_type'] == 'bundle':
+            # We do provide extra information about the bundle items here
+            for item in record['bundle_items']:
+                name = "%s\n\t* %s" % (name, item['name'], )
+        return {'name': name}
+
+    @mapping
     def discount_amount(self, record):
+        if record.get('parent_item'):
+            # Use parent item here if it is set
+            record = record.get('parent_item')
         discount_value = float(record.get('discount_amount') or 0)
         if self.options.tax_include:
             row_total = float(record.get('row_total_incl_tax') or 0)
@@ -698,9 +690,16 @@ class SaleOrderLineImportMapper(Component):
 
     @mapping
     def is_bundle_item(self, record):
-        if 'parent_id' in record or 'parent_item_id' in record:
+        if 'parent_item' in record and record['parent_item']['product_type'] == 'bundle':
             # Set Qty to invoice to zero on items of a bundle
             return {'is_bundle_item': True}
+
+    @mapping
+    def shipping_item_id(self, record):
+        if 'parent_item' in record and 'item_id' in record['parent_item']:
+            return {'shipping_item_id': record['parent_item']['item_id']}
+        else:
+            return {'shipping_item_id': record['item_id']}
 
     @mapping
     def product_id(self, record):
@@ -736,6 +735,12 @@ class SaleOrderLineImportMapper(Component):
 
     @mapping
     def price(self, record):
+        if 'parent_item' in record and record['parent_item']['product_type'] == 'bundle':
+            # This is part of a bundle product - so price here is zero
+            return {'price_unit': 0}
+        if record.get('parent_item'):
+            # Use parent item here if it is set
+            record = record.get('parent_item')
         """ tax key may not be present in magento2 when no taxes apply """
         result = {}
         base_row_total = float(record['base_row_total'] or 0.)
