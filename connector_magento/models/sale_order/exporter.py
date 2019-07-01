@@ -24,7 +24,7 @@ class StateExporter(Component):
     }
 
 
-    def _should_import(self, state=state):
+    def _should_import(self, allowed_states=None):
         """ Before the export, compare the update date
         in Magento and the last sync date in Odoo,
         if the former is more recent, schedule an import
