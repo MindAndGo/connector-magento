@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 # Copyright 2013-2017 Camptocamp SA
+# Copyright 2019 Callino
 # License AGPL-3.0 or later (http://www.gnu.org/licenses/agpl.html)
 
 from odoo.addons.component.core import Component
@@ -14,6 +15,9 @@ class MagentoStockItemExporter(Component):
     def _should_import(self):
         return False
 
+    def _after_export(self):
+        self.binding.with_context(connector_no_export=True).qty = self.binding.calculated_qty
+
 
 class MagentoStockItemExportMapper(Component):
     _name = 'magento.stock.item.export.mapper'
@@ -23,7 +27,6 @@ class MagentoStockItemExportMapper(Component):
     direct = [
         ('min_sale_qty', 'min_sale_qty'),
         ('is_qty_decimal', 'is_qty_decimal'),
-        ('is_in_stock', 'is_in_stock'),
     ]
 
     @mapping
@@ -32,24 +35,27 @@ class MagentoStockItemExportMapper(Component):
 
     @mapping
     def backorders(self, record):
-        # TODO: Find out which values to send !
-        return {}
+        '''
+        selection=[('use_default', 'Use Default Config'),
+                   ('no', 'No Sell'), = 0
+                   ('yes', 'Sell Quantity < 0'), = 1
+                   ('yes-and-notification', 'Sell Quantity < 0 and ' = 2
+                                            'Use Customer Notification')],
+        '''
+        if record.backorders == 'use_default':
+            return
+        map = {
+            'no': 0,
+            'yes': 1,
+            'yes-and-notification': 2
+        }
+        return {
+            'backorders': map[record.backorders],
+        }
 
     @mapping
     def qty(self, record):
-        # Get current stock quantity
-        stock_field = record.magento_warehouse_id.quantity_field or 'virtual_available'
-        if record.magento_warehouse_id.calculation_method == 'real':
-            location = record.magento_warehouse_id.lot_stock_id
-            product_fields = [stock_field]
-            record_with_location = record.with_context(location=location.id)
-            result = record_with_location.read(product_fields)[0]
-            record.qty = result[stock_field]
-            return {
-                'qty': result[stock_field]
-            }
-        elif record.magento_warehouse_id.calculation_method == 'fix':
-            record.qty = record.magento_warehouse_id.fixed_quantity
-            return {
-                'qty': record.magento_warehouse_id.fixed_quantity
-            }
+        return {
+            'qty': record.calculated_qty,
+            'is_in_stock': True if record.product_type=='configurable' or record.calculated_qty > 0 else False,
+        }

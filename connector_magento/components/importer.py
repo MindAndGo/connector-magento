@@ -36,9 +36,9 @@ class MagentoImporter(AbstractComponent):
         self.external_id = None
         self.magento_record = None
 
-    def _get_magento_data(self):
+    def _get_magento_data(self, binding=None):
         """ Return the raw Magento data for ``self.external_id`` """
-        return self.backend_adapter.read(self.external_id)
+        return self.backend_adapter.read(self.external_id, binding=binding)
 
     def _before_import(self):
         """ Hook called before the import, when we have the Magento
@@ -170,7 +170,11 @@ class MagentoImporter(AbstractComponent):
         """ Hook called at the end of the import """
         return
 
-    def run(self, external_id, force=False):
+    def _preprocess_magento_record(self):
+        """ Hook after we got magento record """
+        return
+
+    def run(self, external_id, force=False, binding=None):
         """ Run the synchronization
 
         :param external_id: identifier of the record on Magento
@@ -192,15 +196,16 @@ class MagentoImporter(AbstractComponent):
 
         if not isinstance(external_id, dict):
             try:
-                self.magento_record = self._get_magento_data()
+                self.magento_record = self._get_magento_data(binding)
             except IDMissingInBackend:
                 return _('Record does no longer exist in Magento')
-
+        self._preprocess_magento_record()
         skip = self._must_skip()
         if skip:
             return skip
 
-        binding = self._get_binding()
+        if not binding:
+            binding = self._get_binding()
 
         if not force and self._is_uptodate(binding):
             return _('Already up-to-date.')
@@ -217,7 +222,7 @@ class MagentoImporter(AbstractComponent):
         map_record = self._map_data()
 
         if binding:
-            record = self._update_data(map_record)
+            record = self._update_data(map_record, binding=binding)
             self._update(binding, record)
         else:
             record = self._create_data(map_record)
@@ -306,7 +311,7 @@ class TranslationImporter(Component):
     _inherit = 'magento.importer'
     _usage = 'translation.importer'
 
-    def _get_magento_data(self, storeview_code=None):
+    def _get_magento_data(self, storeview_code=None, binding=None):
         """ Return the raw Magento data for ``self.external_id`` """
         return self.backend_adapter.read(self.external_id, storeview_code=storeview_code)
 
@@ -332,7 +337,7 @@ class TranslationImporter(Component):
             mapper = self.component_by_name(mapper)
 
         for storeview in lang_storeviews:
-            lang_record = self._get_magento_data(storeview.code)
+            lang_record = self._get_magento_data(storeview_code=storeview.code, binding=binding)
             map_record = mapper.map_record(lang_record)
             record = map_record.values()
 

@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 # © 2013 Guewen Baconnier,Camptocamp SA,Akretion
 # © 2016 Sodexis
+# © 2019 Callino
 # License AGPL-3.0 or later (http://www.gnu.org/licenses/agpl).
 
 {'name': 'Magento Connector Product manager',
@@ -9,16 +10,14 @@
  'depends': ['connector_magento',
              'product'
              ],
- 'author': "Info a tout prix, MindAndGo, Camptocamp,Akretion,Sodexis,Odoo Community Association (OCA)",
+ 'author': "Info a tout prix, MindAndGo, Camptocamp,Akretion,Sodexis,Callino,Odoo Community Association (OCA)",
  'license': 'AGPL-3',
  'website': 'http://www.odoo-magento-connector.com',
 
  'data': [
-     # 'views/template.xml',
      'views/magento_backend_views.xml',
-     'views/product_custom_values.xml',
-     'views/magento_external_objects_menus.xml',
      'views/product_view.xml',
+     'views/product_template.xml',
      'wizards/add_backend.xml',
  ],
  'installable': True,

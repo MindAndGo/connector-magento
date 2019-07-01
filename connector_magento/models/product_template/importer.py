@@ -55,6 +55,7 @@ class ProductTemplateImporter(Component):
     _name = 'magento.product.template.importer'
     _inherit = 'magento.importer'
     _apply_on = ['magento.product.template']
+    _magento_id_field = 'sku'
 
     def _create(self, data):
         # create_product_product - Avoid creating variant products
@@ -100,16 +101,33 @@ class ProductTemplateImporter(Component):
                     binding_model._name, external_id
                 )
 
+    def _preprocess_magento_record(self):
+        for attr in self.magento_record.get('custom_attributes', []):
+            self.magento_record[attr['attribute_code']] = attr['value']
+        return
+
     def _update_price(self, binding, price):
         # Update price if price is 0
         if binding.price == 0:
-            binding.price = price
+            binding.with_context(connector_no_export=True).price = price
 
     def _after_import(self, binding):
+        def sort_by_position(elem):
+            return elem.position
+
         # Import Images
+        media_importer = self.component(usage='product.media.importer', model_name='magento.product.media')
+        for media in self.magento_record['media_gallery_entries']:
+            media_importer.run(media, binding)
+        # Here do choose the image at the smallest position as the main image
+        for media_binding in sorted(binding.magento_image_bind_ids.filtered(lambda m: m.media_type == 'image'), key=sort_by_position):
+            binding.with_context(connector_no_export=True).image = media_binding.image
+            break
+        '''
         image_importer = self.component(usage='template.image.importer')
         image_importer.run(self.external_id, binding,
                            data=self.magento_record)
+        '''
         # Import variants
         magento_variants = self.backend_adapter.list_variants(self.external_id)
         variant_binder = self.binder_for('magento.product.product')
@@ -148,10 +166,25 @@ class ProductTemplateImporter(Component):
             binding,
             mapper='magento.product.template.import.mapper'
         )
+        # Do import stock item
+        stock_importer = self.component(usage='record.importer',
+                                        model_name='magento.stock.item')
+        stock_importer.run(self.magento_record['extension_attributes']['stock_item'])
 
     def _is_uptodate(self, binding):
         # TODO: Remove for production - only to test the update
         return False
+
+    def _get_binding(self):
+        binding = super(ProductTemplateImporter, self)._get_binding()
+        if not binding:
+            # Do search using the magento_id - maybe the sku did changed !
+            binding = self.env['magento.product.template'].search([
+                ('backend_id', '=', self.backend_record.id),
+                ('magento_id', '=', self.magento_record['id']),
+            ])
+            # if we found binding here - then the update will also update the external_id on the binding record
+        return binding
 
     def _import_stock_warehouse(self):
         record = self.magento_record
@@ -292,6 +325,8 @@ class ProductTemplateImportMapper(Component):
     @mapping
     def categories(self, record):
         # No categories on configurable product
+        if not 'category_links' in record['extension_attributes']:
+            return
         category_links = record['extension_attributes']['category_links']
         binder = self.binder_for('magento.product.category')
         category_ids = []

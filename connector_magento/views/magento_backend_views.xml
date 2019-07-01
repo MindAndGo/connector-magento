@@ -274,6 +274,9 @@
 						help="Synchonize datas like language, country, currency, tax" string="Synchronize 
 						Base Data" attrs="{'invisible':[('state', 'in', ['draft'])]}" /> -->
 
+					<button name="button_resync_products" type="object"
+						class="oe_highlight" string="Resync all products from Magento to Odoo"
+						attrs="{'invisible':[('state', 'in', ['draft'])]}" />
 					<button name="button_reset_to_draft" type="object"
 						string="Reset To draft Connection"
 						attrs="{'invisible':[('state', 'in', ['draft'])]}" />
@@ -461,16 +464,20 @@
 								</group>
 								<group name="warehouse_products"
 									string="Warehouse / Products">
+									<field name="default_attribute_group_id"/>
 									<field name="warehouse_id" />
 									<field name="default_category_id" />
+									<field name="auto_create_category" />
 									<field name="product_stock_field_id" widget="selection"
 										domain="[('model', 'in', ['product.product', 'product.template']), ('ttype', '=', 'float')]" />
+									<field name="no_stock_sync"/>
 								</group>
 								<group string="Sales / Accounting">
 									<field name="sale_prefix" placeholder="mag-" />
 									<field name="account_analytic_id"
 										groups="sale.group_analytic_accounting" />
 									<field name="fiscal_position_id" />
+									<field name="rounding_diff_account_id"/>
 									<field name="is_multi_company" />
 								</group>
 							</group>

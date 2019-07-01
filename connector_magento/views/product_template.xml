@@ -24,21 +24,31 @@
 		</record>
 
 
-		<record id="view_magento_product_template_form"
-			model="ir.ui.view">
+		<record id="view_magento_product_template_form" model="ir.ui.view">
 			<field name="name">magento.product.template.form</field>
 			<field name="model">magento.product.template</field>
 			<field name="arch" type="xml">
 				<form string="Magento Configurable Product">
 					<header>
 						<button type="object" name="sync_from_magento" string="Force Sync Magento -> Odoo"/>
-						<button name="sync_to_magento" type="object" string="Force Sync Odoo -> Magento" />
+						<button type="object" name="run_sync_from_magento" string="Instead Force Sync Magento -> Odoo" groups="base.group_no_one"/>
 						<button name="action_magento_template_custom_attributes" type="object" string="Custom Values"
 								class="oe_stat_button" context="{'search_default_magento_product_id': [active_id],
 							'default_attribute_set_id': attribute_set_id,
 							'default_magento_product_id': active_id, }" />
+						<button type="object" name="open_magento_backend" string="Open in Magento Backend" class="fa fa-link"/>
+						<button type="object" name="open_magento_frontend" string="Open in Magento Frontend" class="fa fa-link"/>
 					</header>
 					<sheet>
+						<field name="image_medium" widget="image" class="oe_avatar"
+							readonly="1" />
+						<div class="oe_title">
+
+							<h1>
+								<field name="name" placeholder="Product Name" readonly="1" />
+							</h1>
+
+						</div>
 						<div class="oe_button_box" name="button_box">
 
 						</div>
@@ -49,15 +59,54 @@
 							<field name="external_id" readonyl="1"/>
 							<field name="magento_id" readonyl="1"/>
 							<field name="odoo_id" readonly="1"/>
-							<field name="attribute_set_id" required="1" />
+							<field name="attribute_set_id" readonly="1"/>
+							<field name="created_at" readonly="1" />
+							<field name="updated_at" readonly="1" />
 						</group>
-						<label for="magento_product_ids"/>
-						<field name="magento_product_ids" nolabel="1"/>
+						<notebook>
+							<page name="variants" string="Variants">
+								<label for="magento_product_ids"/>
+								<field name="magento_product_ids" nolabel="1"/>
+							</page>
+							<page name="images" string="Images">
+								<label for="magento_image_bind_ids"/>
+								<field name="magento_image_bind_ids" nolabel="1"/>
+							</page>
+							<page name="attributes" string="Attributes">
+								<label for="magento_template_attribute_line_ids"/>
+								<field name="magento_template_attribute_line_ids" nolabel="1"/>
+							</page>
+							<page name="stock" string="Stock Values">
+								<label for="magento_stock_item_ids"/>
+								<field name="magento_stock_item_ids" nolabel="1"/>
+							</page>
+						</notebook>
 					</sheet>
 				</form>
 			</field>
 		</record>
 
+		<record id="magento_product_template_search_view" model="ir.ui.view">
+			<field name="name">magento.product.template.search</field>
+			<field name="model">magento.product.template</field>
+			<field name="arch" type="xml">
+				<search string="Search Magento Configurables">
+					<field name="name"/>
+					<field name="external_id" string="SKU"/>
+					<field name="magento_id" string="Magento ID"/>
+					<group expand="0" string="Group By...">
+						<filter string="Backend"
+								icon="terp-folder-orange"
+								domain="[]"
+								context="{'group_by':'backend_id'}"/>
+						<filter string="Attribute Set"
+								icon="terp-folder-orange"
+								domain="[]"
+								context="{'group_by':'attribute_set_id'}"/>
+				   </group>
+			   </search>
+			</field>
+		</record>
 
 
 		<record id="magento_product_template_tree_view"
@@ -70,12 +119,9 @@
 					<field name="external_id" />
 					<field name="display_name" />
 					<field name="backend_id" />
-					<!-- <field name="attribute_set_id"/> -->
+					<field name="magento_id" />
+					<field name="attribute_set_id"/>
 					<field name="sync_date" />
-					<button name="sync_from_magento" type="object" string="Force Sync Magento -> Odoo" />
-					<button name="sync_to_magento" type="object" string="Force Sync Odoo -> Magento" />
-					<button name="action_magento_template_custom_attributes" type="object" string="Custom Values"
-							/>
 				</tree>
 			</field>
 		</record>

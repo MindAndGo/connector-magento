@@ -16,25 +16,18 @@ class MagentoProductAttributevalue(models.Model):
                               string='Product attribute value',
                               required=True,
                               ondelete='restrict')
-    
-    
     magento_attribute_id = fields.Many2one(comodel_name='magento.product.attribute',
                                        string='Magento Product Attribute',
                                        required=True,
                                        ondelete='cascade',
                                        index=True)
-
     magento_attribute_type = fields.Selection(
          related="magento_attribute_id.frontend_input",
          store=True
         )
-
     # The real magento code - external_id is a combination of attribute_id + _ + code
     code = fields.Char('Magento Code for the value')
     main_text_code = fields.Char('Main text code eg. swatch or default value')
-
-
-
     backend_id = fields.Many2one(
         related='magento_attribute_id.backend_id',
         string='Magento Backend',
@@ -89,7 +82,7 @@ class ProductAttributeValueAdapter(Component):
     _magento2_key = 'id'
     _magento2_name = 'option'
 
-    def read(self, id, storeview_code=None, attributes=None):
+    def read(self, id, storeview_code=None, attributes=None, binding=None):
         """ Returns the information of a record
 
         :rtype: dict
