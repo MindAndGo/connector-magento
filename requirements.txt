@@ -1,1 +1,3 @@
 vcrpy
+slugify
+magic
