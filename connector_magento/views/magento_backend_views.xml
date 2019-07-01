@@ -197,6 +197,7 @@
 							groups="base.group_multi_salesteams" />
 						<field name="lang_id" widget="selection" />
 						<field name="catalog_price_tax_included" />
+						<field name="export_cancel_state" />
 						<p
 							attrs="{'invisible': [('catalog_price_tax_included', '=', False)]}">
 							This option should respect the same

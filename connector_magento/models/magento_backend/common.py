@@ -179,6 +179,8 @@ class MagentoBackend(models.Model):
     )
     auto_create_category = fields.Boolean('Auto Create Category', default=True)
 
+    export_cancel_state = fields.Boolean('Export Cancel state', default=True)
+
     # TODO? add a field `auto_activate` -> activate a cron
     import_products_from_date = fields.Datetime(
         string='Import products from date',

@@ -23,6 +23,30 @@ class StateExporter(Component):
         'waiting_date': 'holded'
     }
 
+
+    def _should_import(self, state=state):
+        """ Before the export, compare the update date
+        in Magento and the last sync date in Odoo,
+        if the former is more recent, schedule an import
+        to not miss changes done in Magento.
+        """
+        assert self.binding
+        assert self.state
+        assert self.external_id
+        
+        if not self.backend_record.export_cancel_state:
+            return False
+        state = binding.state
+        
+        if allowed_states and state not in allowed_states:
+            return _('State %s is not exported.') % state
+        
+        if not external_id:
+            return _('Sale is not linked with a Magento sales order')
+        
+        return True
+
+
     def run(self, binding, allowed_states=None, comment=None, notify=False):
         """ Change the status of the sales order on Magento.
 
@@ -46,12 +70,21 @@ class StateExporter(Component):
         :param notify: When True, Magento will send an email with the
                        comment
         """
+        
         state = binding.state
-        if allowed_states and state not in allowed_states:
-            return _('State %s is not exported.') % state
+
         external_id = self.binder.to_external(binding)
-        if not external_id:
-            return _('Sale is not linked with a Magento sales order')
+        self.external_id = external_id
+        try:
+            should_import = self._should_import(allowed_states=allowed_states)
+            
+        except IDMissingInBackend:
+            self.external_id = None
+            should_import = False
+        
+        if not should_import:
+            return False
+        
         magento_state = self.ORDER_STATUS_MAPPING[state]
         record = self.backend_adapter.read(external_id)
         if record['status'] == magento_state:
