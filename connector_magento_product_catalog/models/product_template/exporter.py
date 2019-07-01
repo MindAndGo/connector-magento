@@ -15,6 +15,9 @@ from odoo.addons.queue_job.job import identity_exact
 
 from odoo.addons.connector_magento.components.backend_adapter import MAGENTO_DATETIME_FORMAT
 
+import logging
+_logger = logging.getLogger(__name__)
+
 
 class ProductTemplateDefinitionExporter(Component):
     _name = 'magento.product.template.exporter'
@@ -149,8 +152,10 @@ class ProductTemplateExportMapper(Component):
     def get_extension_attributes(self, record):
         data = {}
         storeview_id = self.work.storeview_id or False
-        if not storeview_id:
+        if storeview_id != False:
+            _logger.info("Storeview is not set, not exporting the configurable options")
             return {}
+            
         data.update(self.get_website_ids(record))
         data.update(self.category_ids(record))
         data.update(self.configurable_product_options(record))
@@ -252,7 +257,10 @@ class ProductTemplateExportMapper(Component):
         catalogProductRepositoryV1 / POST 
         """
         
-        customAttributes = []
+        customAttributes = [{
+                'attribute_code': 'url_key',
+                'value': '%s-%s' % (record.name, record.id)}]
+
         storeview_id = self.work.storeview_id or False 
         magento_attribute_value_ids = record.\
             magento_template_attribute_value_ids.filtered(
