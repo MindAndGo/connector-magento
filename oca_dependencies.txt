@@ -2,6 +2,7 @@ connector
 connector-ecommerce
 e-commerce
 product-attribute
+product-variant
 sale-workflow
 server-tools
 bank-payment
