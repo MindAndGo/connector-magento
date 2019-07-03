@@ -4,6 +4,7 @@
 
 from odoo import _
 from odoo.addons.component.core import Component
+from odoo.addons.connector.exception import IDMissingInBackend
 
 
 class StateExporter(Component):
