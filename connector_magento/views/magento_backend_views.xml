@@ -197,7 +197,6 @@
 							groups="base.group_multi_salesteams" />
 						<field name="lang_id" widget="selection" />
 						<field name="catalog_price_tax_included" />
-						<field name="export_cancel_state" />
 						<p
 							attrs="{'invisible': [('catalog_price_tax_included', '=', False)]}">
 							This option should respect the same
@@ -460,6 +459,7 @@
 									<field name="export_all_options"/>
 									<field name="always_create_new_attributes"/>
 									<field name="rename_duplicate_values"/>
+									
 
 									<!-- <field name="default_lang_id" widget="selection" /> -->
 								</group>
@@ -472,6 +472,7 @@
 									<field name="product_stock_field_id" widget="selection"
 										domain="[('model', 'in', ['product.product', 'product.template']), ('ttype', '=', 'float')]" />
 									<field name="no_stock_sync"/>
+									
 								</group>
 								<group string="Sales / Accounting">
 									<field name="sale_prefix" placeholder="mag-" />
@@ -480,6 +481,7 @@
 									<field name="fiscal_position_id" />
 									<field name="rounding_diff_account_id"/>
 									<field name="is_multi_company" />
+									<field name="export_cancel_state" />
 								</group>
 							</group>
 						</page>
