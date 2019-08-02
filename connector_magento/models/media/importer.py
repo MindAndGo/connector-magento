@@ -65,7 +65,9 @@ class ProductMediaMapper(Component):
     
     @mapping
     def mimetype(self, record):
-        mimetype = record['mimetype'] if 'mimetype' in record['mimetype'] else 'image/png'
+        mimetype = 'image/png'
+        if 'mimetype' in record['mimetype'] and record['mimetype']:
+            mimetype = record['mimetype']   
          
         return {'mimetype': mimetype}
     
