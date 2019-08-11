@@ -66,6 +66,10 @@ class AttributeSet(Component):
         attributes = []
         
         for record in details:
+            _logger.debug("Importing attribute %s-%s present in attribute set %s [%s]" % \
+                          (record.get('attribute_id'),
+                           record.get('attribute_code'),
+                           binding.name, binding.external_id))
             importer.run(record.get('attribute_id'))
             attributebinder = self.binder_for('magento.product.attribute')
             attributes.append(attributebinder.to_internal(record.get('attribute_id')).id)

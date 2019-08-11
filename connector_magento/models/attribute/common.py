@@ -61,7 +61,9 @@ class MagentoProductAttribute(models.Model):
     def create(self, vals):
         if 'attribute_set_ids' not in vals:
             backend = self.env['magento.backend'].browse(vals['backend_id'])
-            vals['attribute_set_ids'] = [(4, backend.id)]
+#             Look totally useless because mixing appel and oranges first .
+# Maybe the purpose is to bind to the availables attributes set here but this will be done in the next after import 
+#             vals['attribute_set_ids'] = [(4, backend.id)]
         return super(MagentoProductAttribute, self).create(vals)
 
     @api.multi
