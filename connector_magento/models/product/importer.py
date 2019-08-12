@@ -226,9 +226,10 @@ class ProductImportMapper(Component):
 
     @mapping
     def product_name(self, record):
-        if record['visibility'] == 1:
-            # This is a product variant - so the price got set on the template !
-            return {}
+#         if record['visibility'] == 1:
+#    TODO: Check why 
+#             # This is a product variant - so the price got set on the template !
+#             return {}
         return {
             'name': record.get('name', ''),
         }
