@@ -185,6 +185,10 @@ class SaleOrderImportMapper(Component):
         # if gift_cert_amount is zero
         if not record.get('discount_amount'):
             return values
+
+        if not self.backend_record.default_gift_product_id:
+            return values
+        
         # If discount_percent is set - then we did already used this in the line mapping
         _logger.info("Discount percent is: %s", record.get('discount_percent', 0))
         if float(record.get('discount_percent', 0)) > 0:
@@ -680,6 +684,10 @@ class SaleOrderLineImportMapper(Component):
         if record.get('parent_item'):
             # Use parent item here if it is set
             record = record.get('parent_item')
+        if 'discount_percent' in record:
+            return {
+                'discount': record['discount_percent']
+            }
         discount_value = float(record.get('discount_amount') or 0)
         discount_tax_compensation_amount = float(record.get('discount_tax_compensation_amount') or 0)
         if self.options.tax_include:
@@ -753,14 +761,13 @@ class SaleOrderLineImportMapper(Component):
             record = record.get('parent_item')
         """ tax key may not be present in magento2 when no taxes apply """
         result = {}
-        base_row_total = float(record['base_row_total'] or 0.)
-        base_row_total_incl_tax = float(
-            record.get('base_row_total_incl_tax') or base_row_total)
-        qty_ordered = float(record['qty_ordered'])
+        base_price = float(record['base_price'] or 0.)
+        base_price_incl_tax = float(
+            record.get('base_price_incl_tax') or base_price)
         if self.options.tax_include:
-            result['price_unit'] = base_row_total_incl_tax / qty_ordered
+            result['price_unit'] = base_price_incl_tax
         else:
-            result['price_unit'] = base_row_total / qty_ordered
+            result['price_unit'] = base_price
         return result
 
 
