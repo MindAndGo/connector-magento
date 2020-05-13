@@ -42,6 +42,25 @@ class MagentoStockPicking(models.Model):
             exporter = work.component(usage='tracking.exporter')
             return exporter.run(self)
 
+    def get_notify_shipping_items(self):
+        self.ensure_one()
+        data = []
+        for move in self.move_lines:
+            if move.sale_line_id and move.sale_line_id.magento_bind_ids:
+                data.append({
+                    'order_item_id': move.quantity_done,
+                    'qty': move.sale_line_id.magento_bind_ids[0].external_id,
+                })
+        return data
+
+    def get_notify_shipping_tracks(self):
+        self.ensure_one()
+        return [{
+            "track_number": self.carrier_tracking_ref,
+            "title": "Tracking Code",
+            "carrier_code": self.carrier_id.magento_carrier_code
+        }]
+
     @job(default_channel='root.magento')
     @related_action(action='related_action_unwrap_binding')
     @api.multi
@@ -95,8 +114,7 @@ class StockPickingAdapter(Component):
         return self._call('%s.create' % self._magento_model,
                           [order_id, items, comment, email, include_comment])
 
-    def add_tracking_number(self, external_id, carrier_code,
-                            tracking_title, tracking_number, order_id):
+    def notify_shipping(self, order_id, items, tracks):
         """ Add new tracking number.
 
         :param external_id: shipment increment id
@@ -106,21 +124,11 @@ class StockPickingAdapter(Component):
         """
 
         if self.collection.version == '2.0':
-            return self._call('shipment/track', {
-                "entity": {
-                    "order_id": order_id,
-                    "parent_id": external_id,
-                    "weight": 0,
-                    "qty": 1,
-                    "description": tracking_title,
-                    "track_number": tracking_number,
-                    "title": tracking_title,
-                    "carrier_code": carrier_code
-                }
+            return self._call('order/%s/ship' % order_id, {
+                'notify': True,
+                'items': items,
+                'tracks': tracks
             }, http_method='post')
-        return self._call('%s.addTrack' % self._magento_model,
-                          [external_id, carrier_code,
-                           tracking_title, tracking_number])
 
     def get_carriers(self, external_id):
         """ Get the list of carrier codes allowed for the shipping.
