@@ -25,9 +25,13 @@ class MagentoStockMoveListener(Component):
 
 
     def _need_to_update(self, fields, record, binding):
+        _logger.info(
+            """Trying to identify if updating the stock is needed 
+            for record %s, binding %s and fields %s""" % (record, binding, fields))
         if 'state' in fields:
             wh_location_id = binding.backend_id.warehouse_id.lot_stock_id
             #TODO: Imporve the comparison with clid of syntax
+            
             if record.location_dest_id.get_warehouse() == wh_location_id.get_warehouse() or \
                    record.location_id.get_warehouse() == wh_location_id.get_warehouse() :
                 return True
@@ -38,8 +42,10 @@ class MagentoStockMoveListener(Component):
     @skip_if(lambda self, record, **kwargs: self.no_connector_export(record))
     def on_picking_out_done(self, record, picking_method):
         for binding in record.product_id.magento_bind_ids:
-            if not self._need_to_update(fields, record, binding):
-                return
+            
+            #Revert 05562521028a6a2c0f122b38fd1c09ad6faac7f4
+#             if not self._need_to_update(fields, record, binding):
+#                 return
             for stock_item in binding.magento_stock_item_ids:
                 if stock_item.should_export:
                     stock_item.with_delay(identity_key=identity_exact, priority=5).export_record(stock_item.backend_id)
@@ -47,8 +53,9 @@ class MagentoStockMoveListener(Component):
     @skip_if(lambda self, record, **kwargs: self.no_connector_export(record))
     def on_record_write(self, record, fields=None):
         for binding in record.product_id.magento_bind_ids:
-            if not self._need_to_update(fields, record, binding):
-                return 
+            #Revert 05562521028a6a2c0f122b38fd1c09ad6faac7f4
+#             if not self._need_to_update(fields, record, binding):
+#                 return 
             for stock_item in binding.magento_stock_item_ids:
                 if stock_item.should_export:
                     stock_item.with_delay(identity_key=identity_exact, priority=5).export_record(stock_item.backend_id)
