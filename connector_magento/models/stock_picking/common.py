@@ -46,10 +46,10 @@ class MagentoStockPicking(models.Model):
         self.ensure_one()
         data = []
         for move in self.move_lines:
-            if move.sale_line_id and move.sale_line_id.magento_bind_ids:
+            if move.procurement_id.sale_line_id and move.procurement_id.sale_line_id.magento_bind_ids:
                 data.append({
-                    'order_item_id': move.quantity_done,
-                    'qty': move.sale_line_id.magento_bind_ids[0].external_id,
+                    'order_item_id': move.sale_line_id.magento_bind_ids[0].external_id,
+                    'qty': move.quantity_done,
                 })
         return data
 
