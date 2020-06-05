@@ -76,5 +76,5 @@ class MagentoTrackingExporter(Component):
 
         self._validate(binding)
         self.backend_adapter.notify_shipping(
-            binding.get_notify_shipping_tracks(binding.magento_order_id.external_id,),
+            binding.get_notify_shipping_tracks(binding.magento_order_id.external_id, external_id),
         )
