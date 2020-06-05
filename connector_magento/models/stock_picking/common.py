@@ -55,13 +55,13 @@ class MagentoStockPicking(models.Model):
 
     def get_notify_shipping_tracks(self, sale_id, ship_id):
         self.ensure_one()
-        return [{
+        return {
             "parent_id": ship_id,
             "order_id": sale_id,
             "track_number": self.carrier_tracking_ref,
             "title": "Tracking Code",
             "carrier_code": self.carrier_id.magento_carrier_code
-        }]
+        }
 
     @job(default_channel='root.magento')
     @related_action(action='related_action_unwrap_binding')
