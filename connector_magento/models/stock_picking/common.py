@@ -53,9 +53,11 @@ class MagentoStockPicking(models.Model):
                 })
         return data
 
-    def get_notify_shipping_tracks(self):
+    def get_notify_shipping_tracks(self, sale_id, ship_id):
         self.ensure_one()
         return [{
+            "parent_id": ship_id,
+            "parent_id": sale_id,
             "track_number": self.carrier_tracking_ref,
             "title": "Tracking Code",
             "carrier_code": self.carrier_id.magento_carrier_code
@@ -113,7 +115,7 @@ class StockPickingAdapter(Component):
         return self._call('%s.create' % self._magento_model,
                           [order_id, items, comment, email, include_comment])
 
-    def notify_shipping(self, order_id, items, tracks):
+    def notify_shipping(self, track):
         """ Add new tracking number.
 
         :param external_id: shipment increment id
@@ -123,10 +125,8 @@ class StockPickingAdapter(Component):
         """
 
         if self.collection.version == '2.0':
-            return self._call('order/%s/ship' % order_id, {
-                'notify': True,
-                'items': items,
-                'tracks': tracks
+            return self._call('shipment/track' , {
+                'entity': track,
             }, http_method='post')
 
     def get_carriers(self, external_id):
