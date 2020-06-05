@@ -57,7 +57,7 @@ class MagentoStockPicking(models.Model):
         self.ensure_one()
         return [{
             "parent_id": ship_id,
-            "parent_id": sale_id,
+            "order_id": sale_id,
             "track_number": self.carrier_tracking_ref,
             "title": "Tracking Code",
             "carrier_code": self.carrier_id.magento_carrier_code
