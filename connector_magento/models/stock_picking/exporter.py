@@ -98,7 +98,7 @@ class MagentoPickingExporter(Component):
             if not magento_id:
                 filters = {}
                 filters['order_id'] = {'eq': picking.sale_id.magento_bind_ids[0].external_id}
-                ret = self.backend_adapter.search(filters)
+                ret = self.backend_adapter.search_read(filters)
                 if ret:
                     magento_id = ret['entity_id']
             if magento_id:

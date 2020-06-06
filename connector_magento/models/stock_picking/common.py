@@ -111,38 +111,6 @@ class StockPickingAdapter(Component):
             else:
                 raise
 
-    def search(self, filters=None):
-        """ Search records according to some criterias
-        and returns a list of unique identifiers.
-
-        2.0: query the resource to return the key field for all records.
-        Filter out the 0, which designates a magic value, such as the global
-        scope for websites, store groups and store views, or the category for
-        customers that have not yet logged in.
-
-        /search APIs return a dictionary with a top level 'items' key.
-        Repository APIs return a list of items.
-
-        :rtype: list
-        """
-        if self.work.magento_api._location.version == '2.0':
-            key = self._magento2_key or 'id'
-            params = {}
-            if self._magento2_search:
-                params.update(self.get_searchCriteria(filters))
-            else:
-                params['fields'] = key
-                if filters:
-                    raise NotImplementedError  # Unexpected much?
-            res = self._call(
-                self._magento2_search or self._magento2_model,
-                params)
-            return [item[key] for item in res if item[key] != 0]
-
-        # 1.x
-        return self._call('%s.search' % self._magento_model,
-                          [filters] if filters else [{}])
-
     def create(self, order_id, items, comment, email, include_comment):
         """ Create a record on the external system """
         return self._call('%s.create' % self._magento_model,
