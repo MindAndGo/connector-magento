@@ -89,10 +89,20 @@ class MagentoPickingExporter(Component):
                     'qty': val,
                 } for key, val in lines_info.iteritems()]
             }
-            magento_id = self.backend_adapter._call(
-                'order/%s/ship' % picking.sale_id.magento_bind_ids[0].external_id,
-                arguments, http_method='post')
-            self.binder.bind(magento_id, binding)
+            try:
+                magento_id = self.backend_adapter._call(
+                    'order/%s/ship' % picking.sale_id.magento_bind_ids[0].external_id,
+                    arguments, http_method='post')
+            except Exception, e:
+                magento_id = False
+            if not magento_id:
+                filters = {}
+                filters['order_id'] = {'eq': picking.sale_id.magento_bind_ids[0].external_id}
+                ret = self.backend_adapter.search(filters)
+                if ret:
+                    magento_id = ret['entity_id']
+            if magento_id:
+                self.binder.bind(magento_id, binding)
         else:
             if binding.external_id:
                 return _('Already exported')
