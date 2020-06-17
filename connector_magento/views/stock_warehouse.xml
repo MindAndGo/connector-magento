@@ -46,7 +46,7 @@
                 <field name="backend_id"/>
                 <field name="external_id"/>
                 <field name="odoo_id"/>
-                <field name="quantity_field"/>
+                <field name="product_stock_field_id"/>
             </tree>
         </field>
     </record>

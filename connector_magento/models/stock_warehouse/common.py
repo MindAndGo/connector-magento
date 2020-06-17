@@ -17,6 +17,17 @@ class MagentoStockWarehouse(models.Model):
     _inherits = {'stock.warehouse': 'odoo_id'}
     _description = 'Magento Warehouse'
 
+
+    @api.model
+    def _get_stock_field_id(self):
+        field = self.env['ir.model.fields'].search(
+            [('model', '=', 'product.product'),
+             ('name', '=', 'virtual_available')],
+            limit=1)
+        return field
+
+
+
     odoo_id = fields.Many2one(comodel_name='stock.warehouse',
                               string='Warehouse',
                               required=True,
@@ -53,13 +64,6 @@ class MagentoStockWarehouse(models.Model):
     )
 
 
-    @api.model
-    def _get_stock_field_id(self):
-        field = self.env['ir.model.fields'].search(
-            [('model', '=', 'product.product'),
-             ('name', '=', 'virtual_available')],
-            limit=1)
-        return field
 
     @job(default_channel='root.magento')
     @related_action(action='related_action_unwrap_binding')
