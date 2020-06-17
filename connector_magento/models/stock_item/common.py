@@ -18,7 +18,7 @@ class MagentoStockItem(models.Model):
     @api.depends('magento_warehouse_id', 'qty', 'magento_product_binding_id', 'magento_product_binding_id.no_stock_sync')
     def _compute_qty(self):
         for stockitem in self:
-            stock_field = stockitem.magento_warehouse_id.quantity_field or 'virtual_available'
+            stock_field = stockitem.magento_warehouse_id.product_stock_field_id.name or 'virtual_available'
             if not stockitem.magento_product_binding_id.type == 'product':
                 stockitem.calculated_qty = 9999
             elif stockitem.magento_warehouse_id.calculation_method == 'real':
