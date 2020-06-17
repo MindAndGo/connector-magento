@@ -28,6 +28,19 @@ class MagentoStockWarehouse(models.Model):
         ('qty_available', 'Available Quantity'),
         ('virtual_available', 'Forecast quantity')
     ], string='Field use for quantity update', required=True, default='virtual_available')
+    
+    
+    product_stock_field_id = fields.Many2one(
+        comodel_name='ir.model.fields',
+        string='Stock Field',
+        default=_get_stock_field_id,
+        domain="[('model', 'in', ['product.product', 'product.template']),"
+               " ('ttype', '=', 'float')]",
+        help="Choose the field of the product which will be used for "
+             "stock inventory updates.\nIf empty, Quantity Available "
+             "is used.",)
+    
+    
     calculation_method = fields.Selection([
         ('real', 'Use Quantity Field'),
         ('fix', 'Use Fixed Quantity'),
@@ -38,6 +51,15 @@ class MagentoStockWarehouse(models.Model):
         inverse_name='magento_warehouse_id',
         string="Magento Stock Items",
     )
+
+
+    @api.model
+    def _get_stock_field_id(self):
+        field = self.env['ir.model.fields'].search(
+            [('model', '=', 'product.product'),
+             ('name', '=', 'virtual_available')],
+            limit=1)
+        return field
 
     @job(default_channel='root.magento')
     @related_action(action='related_action_unwrap_binding')

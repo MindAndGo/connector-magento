@@ -27,7 +27,8 @@
                     <field name="odoo_id"/>
                     <field name="location_id"/>
                     <field name="calculation_method"/>
-                    <field name="quantity_field" attrs="{'invisible':  [('calculation_method', '!=', 'real')]}"/>
+                    <field name="quantity_field" readonly="1" attrs="{'invisible':  [('calculation_method', '!=', 'real')]}"/>
+                    <field name="product_stock_field_id" attrs="{'invisible':  [('calculation_method', '!=', 'real')]}"/>
                     <field name="fixed_quantity" attrs="{'invisible':  [('calculation_method', '!=', 'fix')]}"/>
                 </group>
                 <label for="magento_stock_item_ids"/>
