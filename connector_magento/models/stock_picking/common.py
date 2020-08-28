@@ -59,7 +59,7 @@ class MagentoStockPicking(models.Model):
             "parent_id": ship_id,
             "order_id": sale_id,
             "track_number": self.carrier_tracking_ref,
-            "title": "Tracking Code",
+            "title": self.carrier_id.magento_tracking_title,
             "carrier_code": self.carrier_id.magento_carrier_code
         }
 
