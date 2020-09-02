@@ -89,7 +89,7 @@ class MagentoProductTemplate(models.Model):
                 if cst_value.odoo_field_name.name not in mg_prod_id:
                     _logger.debug(
                         'Field %s not present in the model %s \nCheck your mapping!' % 
-                        cst_value.odoo_field_name.name, mg_prod_id)
+                        (cst_value.odoo_field_name.name, mg_prod_id))
                 else:
                     _logger.debug(
                         'Prepare check for Odoo field [%s] value' % 
